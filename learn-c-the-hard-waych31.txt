@@ -1,0 +1,348 @@
+
+   Learn C The Hard Way A Learn Code The Hard Way Book
+     * Book
+     * Comments
+     * Video Courses
+     * Related Books
+
+   [next] [prev] [prev-tail] [tail] [up]
+
+Chapter 31
+Exercise 30: Automated Testing
+
+   Automated testing is used frequently in other languages like Python and
+   Ruby, but rarely used in C. Part of the reason comes from the
+   difficulty of automatically loading and testing pieces of C code. In
+   this chapter we'll create a very small little testing "framework" and
+   get your skeleton directory building an example test case.
+
+   The frameworks I'm going to use, and which you'll include in your
+   c-skeleton skeleton is called "minunit" which started with code from a
+   tiny snippet of code by Jera Design. I then evolved it further, to be
+   this:
+     __________________________________________________________________
+
+   Source 86: tests/minunit.h
+   1  #undef NDEBUG
+   2  #ifndef _minunit_h
+   3  #define _minunit_h
+   4
+   5  #include <stdio.h>
+   6  #include <dbg.h>
+   7  #include <stdlib.h>
+   8
+   9  #define mu_suite_start() char *message = NULL
+   10
+   11  #define mu_assert(test, message) if (!(test)) { log_err(message); r
+   eturn message; }
+   12  #define mu_run_test(test) debug("\n-----%s", " " #test); \
+   13      message = test(); tests_run++; if (message) return message;
+   14
+   15  #define RUN_TESTS(name) int main(int argc, char *argv[]) {\
+   16      argc = 1; \
+   17      debug("----- RUNNING: %s", argv[0]);\
+   18          printf("----\nRUNNING: %s\n", argv[0]);\
+   19          char *result = name();\
+   20          if (result != 0) {\
+   21              printf("FAILED: %s\n", result);\
+   22          }\
+   23          else {\
+   24              printf("ALL TESTS PASSED\n");\
+   25          }\
+   26      printf("Tests run: %d\n", tests_run);\
+   27          exit(result != 0);\
+   28  }
+   29
+   30
+   31  int tests_run;
+   32
+   33  #endif
+     __________________________________________________________________
+
+   There's mostly nothing left of the original, as now I'm using the dbg.h
+   macros and I've created a large macro at the end for the boilerplate
+   test runner. Even with this tiny amount of code we'll create a fully
+   functioning unit test system you can use in your C code once it's
+   combined with a shell script to run the tests.
+
+31.1 Wiring Up The Test Framework
+
+   To continue this exercise, you should have your src/libex29.c working
+   and that you completed the Exercise 29 extra credit where you got the
+   ex29.c loader program to properly run. In Exercise 29 I had an extra
+   credit to make it work like a unit test, but I'm going to start over
+   and show you how to do that with minunit.h.
+
+   The first thing to do is create a simple empty unit test name
+   tests/libex29_tests.c with this in it:
+     __________________________________________________________________
+
+   Source 87: tests/libex29_tests.c.h
+   1  #include "minunit.h"
+   2
+   3  char *test_dlopen()
+   4  {
+   5
+   6      return NULL;
+   7  }
+   8
+   9  char *test_functions()
+   10  {
+   11
+   12      return NULL;
+   13  }
+   14
+   15  char *test_failures()
+   16  {
+   17
+   18      return NULL;
+   19  }
+   20
+   21  char *test_dlclose()
+   22  {
+   23
+   24      return NULL;
+   25  }
+   26
+   27  char *all_tests() {
+   28      mu_suite_start();
+   29
+   30      mu_run_test(test_dlopen);
+   31      mu_run_test(test_functions);
+   32      mu_run_test(test_failures);
+   33      mu_run_test(test_dlclose);
+   34
+   35      return NULL;
+   36  }
+   37
+   38  RUN_TESTS(all_tests);
+     __________________________________________________________________
+
+   This code is demonstrating the RUN_TESTS macro in tests/minunit.h and
+   how to use the other test runner macros. I have the actual test
+   functions stubbed out so that you can see how to structure a unit test.
+   I'll break this file down first:
+
+   libex29_tests.c:1
+          Include the minunit.h framework.
+
+   libex29_tests.c:3-7
+          A first test. Tests are structured so they take no arguments and
+          return a char * which is NULL on success. This is important
+          because the other macros will be used to return an error message
+          to the test runner.
+
+   libex29_tests.c:9-25
+          More tests that are the same as the first one.
+
+   libex29_tests.c:27
+          The runner function that will control all the other tests. It
+          has the same form as any other test case, but it gets configured
+          with some additional gear.
+
+   libex29_tests.c:28
+          Sets up some common stuff for a test with mu_suite_start.
+
+   libex29_tests.c:30
+          This is how you say what test to run, using the mu_run_test
+          macro.
+
+   libex29_tests.c:35
+          After you say what tests to run, you then return NULL just like
+          a normal test function.
+
+   libex29_tests.c:38
+          Finally, you just use the big RUN_TESTS macro to wire up the
+          main method with all the goodies and tell it to run the
+          all_tests starter.
+
+   That's all there is to running a test, now you should try getting just
+   this to run within the project skeleton. Here's what it looks like when
+   I do it:
+     __________________________________________________________________
+
+   Source 88: First run of libex29_tests
+   1  $ make clean
+   2  rm -rf build src/libex29.o tests/libex29_tests
+   3  rm -f tests/tests.log
+   4  find . -name "*.gc*" -exec rm {} \;
+   5  rm -rf `find . -name "*.dSYM" -print`
+   6  $ make
+   7  cc -g -O2 -Wall -Wextra -Isrc -rdynamic -DNDEBUG  -fPIC
+   8      -c -o src/libex29.o src/libex29.c
+   9  src/libex29.c: In function fail_on_purpose:
+   10  src/libex29.c:42: warning: unused parameter msg
+   11  ar rcs build/libYOUR_LIBRARY.a src/libex29.o
+   12  ranlib build/libYOUR_LIBRARY.a
+   13  cc -shared -o build/libYOUR_LIBRARY.so src/libex29.o
+   14  cc -g -O2 -Wall -Wextra -Isrc -rdynamic -DNDEBUG  build/libYOUR_LIB
+   RARY.a
+   15      tests/libex29_tests.c   -o tests/libex29_tests
+   16  sh ./tests/runtests.sh
+   17  Running unit tests:
+   18  ----
+   19  RUNNING: ./tests/libex29_tests
+   20  ALL TESTS PASSED
+   21  Tests run: 4
+   22  tests/libex29_tests PASS
+   23
+   24  $
+     __________________________________________________________________
+
+   I first did a make clean and then I ran the build, which remade the
+   template libYOUR_LIBRARY.a and libYOUR_LIBRARY.so files. Remember that
+   you had to do this in the extra credit for Exercise 29, but just in
+   case you didn't figure it out, here's the diff for the Makefile I'm
+   using now:
+     __________________________________________________________________
+
+   Source 89: Makefile changes for .so builds
+     diff --git a/code/c-skeleton/Makefile b/code/c-skeleton/Makefile
+     index 135d538..21b92bf 100644
+     --- a/code/c-skeleton/Makefile
+     +++ b/code/c-skeleton/Makefile
+     @@ -9,9 +9,10 @@ TEST_SRC=$(wildcard tests/*_tests.c)
+      TESTS=$(patsubst %.c,%,$(TEST_SRC))
+
+      TARGET=build/libYOUR_LIBRARY.a
+     +SO_TARGET=$(patsubst %.a,%.so,$(TARGET))
+
+      # The Target Build
+     -all: $(TARGET) tests
+     +all: $(TARGET) $(SO_TARGET) tests
+
+      dev: CFLAGS=-g -Wall -Isrc -Wall -Wextra $(OPTFLAGS)
+      dev: all
+     @@ -21,6 +22,9 @@ $(TARGET): build $(OBJECTS)
+       ar rcs $@ $(OBJECTS)
+       ranlib $@
+
+     +$(SO_TARGET): $(TARGET) $(OBJECTS)
+     + $(CC) -shared -o $@ $(OBJECTS)
+     +
+      build:
+       @mkdir -p build
+       @mkdir -p bin
+     __________________________________________________________________
+
+   With those changes you should be now building everything and you can
+   finally fill in the remaining unit test functions:
+     __________________________________________________________________
+
+   Source 90: Final version of tests/libex29_tests.c
+   1  #include "minunit.h"
+   2  #include <dlfcn.h>
+   3
+   4  typedef int (*lib_function)(const char *data);
+   5  char *lib_file = "build/libYOUR_LIBRARY.so";
+   6  void *lib = NULL;
+   7
+   8  int check_function(const char *func_to_run, const char *data, int ex
+   pected)
+   9  {
+   10      lib_function func = dlsym(lib, func_to_run);
+   11      check(func != NULL, "Did not find %s function in the library %s
+   : %s", func_to_run, lib_file, dlerror());
+   12
+   13      int rc = func(data);
+   14      check(rc == expected, "Function %s return %d for data: %s", fun
+   c_to_run, rc, data);
+   15
+   16      return 1;
+   17  error:
+   18      return 0;
+   19  }
+   20
+   21  char *test_dlopen()
+   22  {
+   23      lib = dlopen(lib_file, RTLD_NOW);
+   24      mu_assert(lib != NULL, "Failed to open the library to test.");
+   25
+   26      return NULL;
+   27  }
+   28
+   29  char *test_functions()
+   30  {
+   31      mu_assert(check_function("print_a_message", "Hello", 0), "print
+   _a_message failed.");
+   32      mu_assert(check_function("uppercase", "Hello", 0), "uppercase f
+   ailed.");
+   33      mu_assert(check_function("lowercase", "Hello", 0), "lowercase f
+   ailed.");
+   34
+   35      return NULL;
+   36  }
+   37
+   38  char *test_failures()
+   39  {
+   40      mu_assert(check_function("fail_on_purpose", "Hello", 1), "fail_
+   on_purpose should fail.");
+   41
+   42      return NULL;
+   43  }
+   44
+   45  char *test_dlclose()
+   46  {
+   47      int rc = dlclose(lib);
+   48      mu_assert(rc == 0, "Failed to close lib.");
+   49
+   50      return NULL;
+   51  }
+   52
+   53  char *all_tests() {
+   54      mu_suite_start();
+   55
+   56      mu_run_test(test_dlopen);
+   57      mu_run_test(test_functions);
+   58      mu_run_test(test_failures);
+   59      mu_run_test(test_dlclose);
+   60
+   61      return NULL;
+   62  }
+   63
+   64  RUN_TESTS(all_tests);
+     __________________________________________________________________
+
+   Hopefully by now you can figure out what's going on, since there's
+   nothing new in this except for the check_function function. This is a
+   common pattern where I see that I'll be doing a chunk of code
+   repeatedly, and then simply automate it either by creating a function
+   or a macro for it. In this case I'm going to run functions in the .so I
+   load so I just made a little function to do it.
+
+31.2 Extra Credit
+
+    1. This works but it's probably a bit messy. Clean the c-skeleton
+       directory up so that it has all these files, but remove any of the
+       code related to Exercise 29. You should be able to copy this
+       directory over and kickstart new projects without much editing.
+    2. Study the runtests.sh and go read about bash syntax so you know
+       what it does. Think you could write a C version of this script?
+
+   [next] [prev] [prev-tail] [front] [up]
+     __________________________________________________________________
+
+   Please enable JavaScript to view the comments powered by Disqus.
+
+Take An Online Video Course
+
+   You can sign up for a video course at:
+
+   http://www.udemy.com/learn-c-the-hard-way/
+
+   This course is currently being built at the same time that the book is
+   being built, but if you sign up now then you get early access to both
+   the videos and PDF of the book.
+
+Related Books
+
+   You might want to check out these other books in the series:
+    1. Learn Ruby The Hard Way
+    2. Learn Regex The Hard Way
+    3. Learn SQL The Hard Way
+    4. Learn C The Hard Way
+    5. Learn Python The Hard Way
+
+   I'll be referencing other books shortly.
+
+   Copyright 2011 Zed A. Shaw. All Rights Reserved.

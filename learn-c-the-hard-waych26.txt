@@ -1,0 +1,270 @@
+
+   Learn C The Hard Way A Learn Code The Hard Way Book
+     * Book
+     * Comments
+     * Video Courses
+     * Related Books
+
+   [next] [prev] [prev-tail] [tail] [up]
+
+Chapter 26
+Exercise 25: Variable Argument Functions
+
+   In C you can create your own versions of functions like printf and
+   scanf by creating a "variable argument function". These functions use
+   the header stdarg.h and with them you can create nicer interfaces to
+   your library. They are handy for certain types of "builder" functions,
+   formatting functions, and anything that takes variable arguments.
+
+   Understanding "vararg functions" is not essential to creating C
+   programs. I think I've used it maybe a 20 times in my code in the years
+   I've been programming. However, knowing how a vararg function works
+   will help you debug the ones you use and gives you more understanding
+   of the computer.
+     __________________________________________________________________
+
+   Source 65: ex25.c
+   1  /** WARNING: This code is fresh and potentially isn't correct yet. *
+   /
+   2
+   3  #include <stdlib.h>
+   4  #include <stdio.h>
+   5  #include <stdarg.h>
+   6  #include "dbg.h"
+   7
+   8  #define MAX_DATA 100
+   9
+   10  int read_string(char **out_string, int max_buffer)
+   11  {
+   12      *out_string = calloc(1, max_buffer + 1);
+   13      check_mem(*out_string);
+   14
+   15      char *result = fgets(*out_string, max_buffer, stdin);
+   16      check(result != NULL, "Input error.");
+   17
+   18      return 0;
+   19
+   20  error:
+   21      if(*out_string) free(*out_string);
+   22      *out_string = NULL;
+   23      return -1;
+   24  }
+   25
+   26  int read_int(int *out_int)
+   27  {
+   28      char *input = NULL;
+   29      int rc = read_string(&input, MAX_DATA);
+   30      check(rc == 0, "Failed to read number.");
+   31
+   32      *out_int = atoi(input);
+   33
+   34      free(input);
+   35      return 0;
+   36
+   37  error:
+   38      if(input) free(input);
+   39      return -1;
+   40  }
+   41
+   42  int read_scan(const char *fmt, ...)
+   43  {
+   44      int i = 0;
+   45      int rc = 0;
+   46      int *out_int = NULL;
+   47      char *out_char = NULL;
+   48      char **out_string = NULL;
+   49      int max_buffer = 0;
+   50
+   51      va_list argp;
+   52      va_start(argp, fmt);
+   53
+   54      for(i = 0; fmt[i] != '\0'; i++) {
+   55          if(fmt[i] == '%') {
+   56              i++;
+   57              switch(fmt[i]) {
+   58                  case '\0':
+   59                      sentinel("Invalid format, you ended with %%.");
+   60                      break;
+   61
+   62                  case 'd':
+   63                      out_int = va_arg(argp, int *);
+   64                      rc = read_int(out_int);
+   65                      check(rc == 0, "Failed to read int.");
+   66                      break;
+   67
+   68                  case 'c':
+   69                      out_char = va_arg(argp, char *);
+   70                      *out_char = fgetc(stdin);
+   71                      break;
+   72
+   73                  case 's':
+   74                      max_buffer = va_arg(argp, int);
+   75                      out_string = va_arg(argp, char **);
+   76                      rc = read_string(out_string, max_buffer);
+   77                      check(rc == 0, "Failed to read string.");
+   78                      break;
+   79
+   80                  default:
+   81                      sentinel("Invalid format.");
+   82              }
+   83          } else {
+   84              fgetc(stdin);
+   85          }
+   86
+   87          check(!feof(stdin) && !ferror(stdin), "Input error.");
+   88      }
+   89
+   90      va_end(argp);
+   91      return 0;
+   92
+   93  error:
+   94      va_end(argp);
+   95      return -1;
+   96  }
+   97
+   98
+   99
+   100  int main(int argc, char *argv[])
+   101  {
+   102      char *first_name = NULL;
+   103      char initial = ' ';
+   104      char *last_name = NULL;
+   105      int age = 0;
+   106
+   107      printf("What's your first name? ");
+   108      int rc = read_scan("%s", MAX_DATA, &first_name);
+   109      check(rc == 0, "Failed first name.");
+   110
+   111      printf("What's your initial? ");
+   112      rc = read_scan("%c\n", &initial);
+   113      check(rc == 0, "Failed initial.");
+   114
+   115      printf("What's your last name? ");
+   116      rc = read_scan("%s", MAX_DATA, &last_name);
+   117      check(rc == 0, "Failed last name.");
+   118
+   119      printf("How old are you? ");
+   120      rc = read_scan("%d", &age);
+   121
+   122      printf("---- RESULTS ----\n");
+   123      printf("First Name: %s", first_name);
+   124      printf("Initial: '%c'\n", initial);
+   125      printf("Last Name: %s", last_name);
+   126      printf("Age: %d\n", age);
+   127
+   128      free(first_name);
+   129      free(last_name);
+   130      return 0;
+   131  error:
+   132      return -1;
+   133  }
+     __________________________________________________________________
+
+   This program is similar to the previous exercise, except I have written
+   my own scanf style function that handles strings the way I want. The
+   main function should be clear to you, as well as the two functions
+   read_string and read_int since they do nothing new.
+
+   The varargs function is called read_scan and it does the same thing
+   that scanf is doing using the va_list data structure and it's
+   supporting macros and functions. Here's how it works:
+    1. I set as the last parameter of the function the keyword ... which
+       indicates to C that this function will take any number of arguments
+       after the fmt argument. I could put many other arguments before
+       this, but I can't put anymore after this.
+    2. After setting up some variables, I create a va_list variable and
+       initialize it with va_start. This configures the gear in stdarg.h
+       that handles variable arguments.
+    3. I then use a for-loop to loop through the format string fmt and
+       process the same kind of formats that scanf has, but much simpler.
+       I just have integers, characters, and strings.
+    4. When I hit a format, I use the switch-statement to figure out what
+       to do.
+    5. Now, to get a variable from the va_list argp I use the macro
+       va_arg(argp, TYPE) where TYPE is the exact type of what I will
+       assign this function parameter to. The downside to this design is
+       you're flying blind, so if you don't have enough parameters then oh
+       well, you'll most likely crash.
+    6. The interesting difference from scanf is I'm assuming that people
+       want read_scan to create the strings it reads when it hits a 's'
+       format sequence. When you give this sequence, the function takes
+       two parameters off the va_list argp stack: the max function size to
+       read, and the output character string pointer. Using that
+       information it just runs read_string to do the real work.
+    7. This makes read_scan more consistent than scanf since you always
+       give an address-of \& on variables to have them set appropriately.
+    8. Finally, if it encounters a character that's not in the format, it
+       just reads one char to skip it. It doesn't care what that char is,
+       just that it should skip it.
+
+26.1 What You Should See
+
+   When you run this one it's similar to the last one:
+     __________________________________________________________________
+
+   Source 66: ex25.out
+   1$ make ex25
+   2cc -Wall -g -DNDEBUG    ex25.c   -o ex25
+   3$ ./ex25
+   4What's your first name? Zed
+   5What's your initial? A
+   6What's your last name? Shaw
+   7How old are you? 37
+   8---- RESULTS ----
+   9First Name: Zed
+   10Initial: 'A'
+   11Last Name: Shaw
+   12Age: 37
+     __________________________________________________________________
+
+26.2 How To Break It
+
+   This program should be more robust against buffer overflows, but it
+   doesn't handle the formatted input as well as scanf. To try breaking
+   this, change the code that you forget to pass in the initial size for
+   '%s' formats. Try also giving it more data than MAX_DATA, and then see
+   how not using calloc in read_string changes how it works. Finally,
+   there's a problem that fgets eats the newlines, so try to fix that
+   using fgetc but leave out the '
+   0' that ends the string.
+
+26.3 Extra Credit
+
+    1. Make double and triple sure that you know what each of the out_
+       variables are doing. Most important is out_string and how it's a
+       pointer to a pointer, so getting when you're setting the pointer
+       vs. the contents is important. Break down each of the
+    2. Write a similar function to printf that uses the varargs system and
+       rewrite main to use it.
+    3. As usual, read the man page on all of this so you know what it does
+       on your platform. Some platforms will use macros and others use
+       functions, and some have these do nothing. It all depends on the
+       compiler and the platform you use.
+
+   [next] [prev] [prev-tail] [front] [up]
+     __________________________________________________________________
+
+   Please enable JavaScript to view the comments powered by Disqus.
+
+Take An Online Video Course
+
+   You can sign up for a video course at:
+
+   http://www.udemy.com/learn-c-the-hard-way/
+
+   This course is currently being built at the same time that the book is
+   being built, but if you sign up now then you get early access to both
+   the videos and PDF of the book.
+
+Related Books
+
+   You might want to check out these other books in the series:
+    1. Learn Ruby The Hard Way
+    2. Learn Regex The Hard Way
+    3. Learn SQL The Hard Way
+    4. Learn C The Hard Way
+    5. Learn Python The Hard Way
+
+   I'll be referencing other books shortly.
+
+   Copyright 2011 Zed A. Shaw. All Rights Reserved.

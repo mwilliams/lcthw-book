@@ -1,0 +1,189 @@
+
+   Learn C The Hard Way A Learn Code The Hard Way Book
+     * Book
+     * Comments
+     * Video Courses
+     * Related Books
+
+   [next] [prev] [prev-tail] [tail] [up]
+
+Chapter 11
+Exercise 10: Arrays Of Strings, Looping
+
+   You can make an array of various types, and have the idea down that a
+   "string" and an "array of bytes" are the same thing. The next thing is
+   to take this one step further and do an array that has strings in it.
+   We'll also introduce your first looping construct, the for-loop to help
+   print out this new data structure.
+
+   The fun part of this is that there's been an array of strings hiding in
+   your programs for a while now, the char *argv[] in the main function
+   arguments. Here's code that will print out any command line arguments
+   you pass it:
+     __________________________________________________________________
+
+   Source 29: ex10.c
+   1  #include <stdio.h>
+   2
+   3  int main(int argc, char *argv[])
+   4  {
+   5      int i = 0;
+   6
+   7      // go through each string in argv
+   8      // why am I skipping argv[0]?
+   9      for(i = 1; i < argc; i++) {
+   10          printf("arg %d: %s\n", i, argv[i]);
+   11      }
+   12
+   13      // let's make our own array of strings
+   14      char *states[] = {
+   15          "California", "Oregon",
+   16          "Washington", "Texas"
+   17      };
+   18      int num_states = 4;
+   19
+   20      for(i = 0; i < num_states; i++) {
+   21          printf("state %d: %s\n", i, states[i]);
+   22      }
+   23
+   24      return 0;
+   25  }
+     __________________________________________________________________
+
+   The format of a for-loop is this:
+         for(INITIALIZER; TEST; INCREMENTER) {
+             CODE;
+         }
+
+   Here's how the for-loop works:
+    1. The INITIALIZER is code that is run to setup the loop, in this case
+       i = 0.
+    2. Next the TEST boolean expression is checked, and if it's false (0)
+       then CODE is skipped, doing nothing.
+    3. The CODE runs, does whatever it does.
+    4. After the CODE runs, the INCREMENTER part is run, usually
+       incrementing something, like in i++.
+    5. And it continues again with Step 2 until the TEST is false (0).
+
+   This for-loop is going through the command line arguments using argc
+   and argv like this:
+    1. The OS passes each command line argument as a string in the argv
+       array. The program's name (./ex10) is at 0, with the rest coming
+       after it.
+    2. The OS also sets argc to the number of arguments in the argv array
+       so you can process them without going past the end. Remember that
+       if you give one argument, the program's name is the first, so argc
+       is 2.
+    3. The for-loop sets up with i = 1 in the initializer.
+    4. It then tests that i is less than argc with the test i < argc.
+       Since initially 1 < 2 it will pass.
+    5. It then runs the code which just prints out the i and uses i to
+       index into argv.
+    6. The incrementer is then run using the i++ syntax, which is a handy
+       way of writing i = i + 1.
+    7. This then repeats until i < argc is finally false (0) when the loop
+       exits and the program continues on.
+
+11.1 What You Should See
+
+   To play with this program you have to run it two ways. The first way is
+   to pass in some command line arguments so that argc and argv get set.
+   The second is to run it with no arguments so you can see that the first
+   for-loop doesn't run since i < argc will be false.
+     __________________________________________________________________
+
+   Source 30: ex10 output
+   1$ make ex10
+   2cc -Wall -g    ex10.c   -o ex10
+   3$ ./ex10 i am a bunch of arguments
+   4arg 1: i
+   5arg 2: am
+   6arg 3: a
+   7arg 4: bunch
+   8arg 5: of
+   9arg 6: arguments
+   10state 0: California
+   11state 1: Oregon
+   12state 2: Washington
+   13state 3: Texas
+   14$
+   15$ ./ex10
+   16state 0: California
+   17state 1: Oregon
+   18state 2: Washington
+   19state 3: Texas
+   20$
+     __________________________________________________________________
+
+11.1.1 Understanding Arrays Of Strings
+
+   From this you should be able to figure out that in C you make an "array
+   of strings" by combining the char *str = "blah" syntax with the
+   char str[] = {'b','l','a','h'} syntax to construct a 2-dimensional
+   array. The syntax char *states[] = {...} on line 14 is this 2-dimension
+   combination, with each string being one element, and each character in
+   the string being another.
+
+   Confusing? The concept of multiple dimensions is something most people
+   never think about so what you should do is build this array of strings
+   on paper:
+
+    1. Make a grid with the index of each string on the left.
+    2. Then put the index of each character on the top.
+    3. Then, fill in the squares in the middle with what single character
+       goes in that cell.
+    4. Once you have the grid, trace through the code manually using this
+       grid of paper.
+
+   Another way to figure this is out is to build the same structure in a
+   programming language you are more familiar with like Python or Ruby.
+
+11.2 How To Break It
+
+    1. Take your favorite other language, and use it to run this program,
+       but with as many command line arguments as possible. See if you can
+       bust it by giving it way too many arguments.
+    2. Initialize i to 0 and see what that does. Do you have to adjust
+       argc as well or does it just work? Why does 0-based indexing work
+       here?
+    3. Set num_states wrong so that it's a higher value and see what it
+       does.
+
+11.3 Extra Credit
+
+    1. Figure out what kind of code you can put into the parts of a
+       for-loop.
+    2. Look up how to use the ',' (comma) character to separate multiple
+       statements in the parts of the for-loop.
+    3. Read what a NULL is and try to use it in one of the elements of the
+       states array to see what it'll print.
+    4. See if you can assign an element from the states array to the argv
+       array before printing both. Try the inverse.
+
+   [next] [prev] [prev-tail] [front] [up]
+     __________________________________________________________________
+
+   Please enable JavaScript to view the comments powered by Disqus.
+
+Take An Online Video Course
+
+   You can sign up for a video course at:
+
+   http://www.udemy.com/learn-c-the-hard-way/
+
+   This course is currently being built at the same time that the book is
+   being built, but if you sign up now then you get early access to both
+   the videos and PDF of the book.
+
+Related Books
+
+   You might want to check out these other books in the series:
+    1. Learn Ruby The Hard Way
+    2. Learn Regex The Hard Way
+    3. Learn SQL The Hard Way
+    4. Learn C The Hard Way
+    5. Learn Python The Hard Way
+
+   I'll be referencing other books shortly.
+
+   Copyright 2011 Zed A. Shaw. All Rights Reserved.

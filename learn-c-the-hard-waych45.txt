@@ -1,0 +1,284 @@
+
+   Learn C The Hard Way A Learn Code The Hard Way Book
+     * Book
+     * Comments
+     * Video Courses
+     * Related Books
+
+   [next] [prev] [prev-tail] [tail] [up]
+
+Chapter 45
+Exercise 44: Ring Buffer
+
+   Ring buffers are incredibly useful when processing asynchronous IO.
+   They allow one side to receive data in random intervals of random
+   sizes, but feed cohesive chunks to another side in set sizes or
+   intervals. They are a variant on the Queue data structure but it
+   focuses on blocks of bytes instead of a list of pointers. In this
+   exercise I'm going to show you the RingBuffer code, and then you have
+   to make a full unit test for it.
+     __________________________________________________________________
+
+   Source 146: src/lcthw/ringbuffer.h
+   1  #ifndef _lcthw_RingBuffer_h
+   2  #define _lcthw_RingBuffer_h
+   3
+   4  #include <lcthw/bstrlib.h>
+   5
+   6  typedef struct {
+   7      char *buffer;
+   8      int length;
+   9      int start;
+   10      int end;
+   11  } RingBuffer;
+   12
+   13  RingBuffer *RingBuffer_create(int length);
+   14
+   15  void RingBuffer_destroy(RingBuffer *buffer);
+   16
+   17  int RingBuffer_read(RingBuffer *buffer, char *target, int amount);
+   18
+   19  int RingBuffer_write(RingBuffer *buffer, char *data, int length);
+   20
+   21  int RingBuffer_empty(RingBuffer *buffer);
+   22
+   23  int RingBuffer_full(RingBuffer *buffer);
+   24
+   25  int RingBuffer_available_data(RingBuffer *buffer);
+   26
+   27  int RingBuffer_available_space(RingBuffer *buffer);
+   28
+   29  bstring RingBuffer_gets(RingBuffer *buffer, int amount);
+   30
+   31  #define RingBuffer_available_data(B) (((B)->end + 1) % (B)->length
+   - (B)->start - 1)
+   32
+   33  #define RingBuffer_available_space(B) ((B)->length - (B)->end - 1)
+   34
+   35  #define RingBuffer_full(B) (RingBuffer_available_data((B)) - (B)->l
+   ength == 0)
+   36
+   37  #define RingBuffer_empty(B) (RingBuffer_available_data((B)) == 0)
+   38
+   39  #define RingBuffer_puts(B, D) RingBuffer_write((B), bdata((D)), ble
+   ngth((D)))
+   40
+   41  #define RingBuffer_get_all(B) RingBuffer_gets((B), RingBuffer_avail
+   able_data((B)))
+   42
+   43  #define RingBuffer_starts_at(B) ((B)->buffer + (B)->start)
+   44
+   45  #define RingBuffer_ends_at(B) ((B)->buffer + (B)->end)
+   46
+   47  #define RingBuffer_commit_read(B, A) ((B)->start = ((B)->start + (A
+   )) % (B)->length)
+   48
+   49  #define RingBuffer_commit_write(B, A) ((B)->end = ((B)->end + (A))
+   % (B)->length)
+   50
+   51  #endif
+     __________________________________________________________________
+
+   Looking at the data structure you see I have a buffer, start and end. A
+   RingBuffer does nothing more than move the start and end around the
+   buffer so that it "loops" whenever it reaches the buffer's end. Doing
+   this gives the illusion of an infinite read device in a small space. I
+   then have a bunch of macros that do various calculations based on this.
+
+   Here's the implementation which is a much better explanation of how
+   this works:
+     __________________________________________________________________
+
+   Source 147: src/lcthw/ringbuffer.c
+   1  #undef NDEBUG
+   2  #include <assert.h>
+   3  #include <stdio.h>
+   4  #include <stdlib.h>
+   5  #include <string.h>
+   6  #include <lcthw/dbg.h>
+   7  #include <lcthw/ringbuffer.h>
+   8
+   9  RingBuffer *RingBuffer_create(int length)
+   10  {
+   11      RingBuffer *buffer = calloc(1, sizeof(RingBuffer));
+   12      buffer->length  = length + 1;
+   13      buffer->start = 0;
+   14      buffer->end = 0;
+   15      buffer->buffer = calloc(buffer->length, 1);
+   16
+   17      return buffer;
+   18  }
+   19
+   20  void RingBuffer_destroy(RingBuffer *buffer)
+   21  {
+   22      if(buffer) {
+   23          free(buffer->buffer);
+   24          free(buffer);
+   25      }
+   26  }
+   27
+   28  int RingBuffer_write(RingBuffer *buffer, char *data, int length)
+   29  {
+   30      if(RingBuffer_available_data(buffer) == 0) {
+   31          buffer->start = buffer->end = 0;
+   32      }
+   33
+   34      check(length <= RingBuffer_available_space(buffer),
+   35              "Not enough space: %d request, %d available",
+   36              RingBuffer_available_data(buffer), length);
+   37
+   38      void *result = memcpy(RingBuffer_ends_at(buffer), data, length)
+   ;
+   39      check(result != NULL, "Failed to write data into buffer.");
+   40
+   41      RingBuffer_commit_write(buffer, length);
+   42
+   43      return length;
+   44  error:
+   45      return -1;
+   46  }
+   47
+   48  int RingBuffer_read(RingBuffer *buffer, char *target, int amount)
+   49  {
+   50      check_debug(amount <= RingBuffer_available_data(buffer),
+   51              "Not enough in the buffer: has %d, needs %d",
+   52              RingBuffer_available_data(buffer), amount);
+   53
+   54      void *result = memcpy(target, RingBuffer_starts_at(buffer), amo
+   unt);
+   55      check(result != NULL, "Failed to write buffer into data.");
+   56
+   57      RingBuffer_commit_read(buffer, amount);
+   58
+   59      if(buffer->end == buffer->start) {
+   60          buffer->start = buffer->end = 0;
+   61      }
+   62
+   63      return amount;
+   64  error:
+   65      return -1;
+   66  }
+   67
+   68  bstring RingBuffer_gets(RingBuffer *buffer, int amount)
+   69  {
+   70      check(amount > 0, "Need more than 0 for gets, you gave: %d ", a
+   mount);
+   71      check_debug(amount <= RingBuffer_available_data(buffer),
+   72              "Not enough in the buffer.");
+   73
+   74      bstring result = blk2bstr(RingBuffer_starts_at(buffer), amount)
+   ;
+   75      check(result != NULL, "Failed to create gets result.");
+   76      check(blength(result) == amount, "Wrong result length.");
+   77
+   78      RingBuffer_commit_read(buffer, amount);
+   79      assert(RingBuffer_available_data(buffer) >= 0 && "Error in read
+    commit.");
+   80
+   81      return result;
+   82  error:
+   83      return NULL;
+   84  }
+     __________________________________________________________________
+
+   This is all there is to a basic RingBuffer implementation. You can read
+   and write blocks of data to it. You can ask how much is in it and how
+   much space it has. There are some fancier ring buffers that use tricks
+   in the OS to create an imaginary infinite store, but those aren't
+   portable.
+
+   Since my RingBuffer deals with reading and writing blocks of memory,
+   I'm making sure that any time end == start then I reset them to 0
+   (zero) so that they go to the beginning of the buffer. In the Wikipedia
+   version it wasn't writing blocks of data, so it only had to move end
+   and start around in a circle. To better handle blocks you have to drop
+   to the beginning of the internal buffer whenever the data is empty.
+
+45.1 The Unit Test
+
+   For your unit test, you'll want to test as many possible conditions as
+   you can. Easiest way to do that is to preconstruct different RingBuffer
+   structs and then manually check that the functions and math work right.
+   For example, you could make one where end is right at the end of the
+   buffer and start is right before it, then see how it fails.
+
+45.2 What You Should See
+
+   Here's my ringbuffer_tests run:
+     __________________________________________________________________
+
+   Source 148: ringbuffer_tests
+   1  $ ./tests/ringbuffer_tests
+   2  DEBUG tests/ringbuffer_tests.c:60: ----- RUNNING: ./tests/ringbuffer
+   _tests
+   3  ----
+   4  RUNNING: ./tests/ringbuffer_tests
+   5  DEBUG tests/ringbuffer_tests.c:53:
+   6  ----- test_create
+   7  DEBUG tests/ringbuffer_tests.c:54:
+   8  ----- test_read_write
+   9  DEBUG tests/ringbuffer_tests.c:55:
+   10  ----- test_destroy
+   11  ALL TESTS PASSED
+   12  Tests run: 3
+   13  $
+     __________________________________________________________________
+
+   You should have at least three tests that confirm all the basic
+   operations, and then see how much more you can test beyond what I've
+   done.
+
+45.3 How To Improve It
+
+   As usual you should go back and add the defensive programming checks to
+   this exercise. Hopefully you've been doing this because the base code
+   in most of liblcthw doesn't check for common defensive programming that
+   I'm teaching you. I leave this to you so that you get used to improving
+   code with these extra checks.
+
+   For example, in this ring buffer there's not a lot of checking that an
+   access will actually be inside the buffer.
+
+   If you read the Ring Buffer Wikipedia page you'll see the "Optimized
+   POSIX implementation" that uses POSIX specific calls to create an
+   infinite space. Study that as I'll have you try it in the extra credit.
+
+45.4 Extra Credit
+
+    1. Create an alternative implementation of RingBuffer that uses the
+       POSIX trick and a unit test for it.
+    2. Add a performance comparison test to this unit test that compares
+       the two versions by fuzzing them with random data and random
+       read/write operations. Make sure that you setup this fuzzing so
+       that the same operations are done to each so you can compare them
+       between runs.
+    3. Use callgrind and cachegrind to compare the performance of these
+       two.
+
+   [next] [prev] [prev-tail] [front] [up]
+     __________________________________________________________________
+
+   Please enable JavaScript to view the comments powered by Disqus.
+
+Take An Online Video Course
+
+   You can sign up for a video course at:
+
+   http://www.udemy.com/learn-c-the-hard-way/
+
+   This course is currently being built at the same time that the book is
+   being built, but if you sign up now then you get early access to both
+   the videos and PDF of the book.
+
+Related Books
+
+   You might want to check out these other books in the series:
+    1. Learn Ruby The Hard Way
+    2. Learn Regex The Hard Way
+    3. Learn SQL The Hard Way
+    4. Learn C The Hard Way
+    5. Learn Python The Hard Way
+
+   I'll be referencing other books shortly.
+
+   Copyright 2011 Zed A. Shaw. All Rights Reserved.

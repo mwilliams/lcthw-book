@@ -1,0 +1,487 @@
+
+   Learn C The Hard Way A Learn Code The Hard Way Book
+     * Book
+     * Comments
+     * Video Courses
+     * Related Books
+
+   [next] [prev] [prev-tail] [tail] [up]
+
+Chapter 21
+Exercise 20: Zed's Awesome Debug Macros
+
+   There is a constant problem in C that you have been dancing around but
+   which I am going to solve in this exercise using a set of macros I
+   developed. You can thank me later when you realize how insanely awesome
+   these macros are. Right now you won't realize how awesome they are, so
+   you'll just have to use them and then you can walk up to me one day and
+   say, "Zed, those Debug Macros were the bomb. I owe you my first born
+   child because you saved me a decade of heartache and prevented me from
+   killing myself more than once. Thank you good sir, here's a million
+   dollars and the original Snakehead Telecaster prototype signed by Leo
+   Fender."
+
+   Yes, they are that awesome.
+
+21.1 The C Error Handling Problem
+
+   In almost every programming language handling errors is a difficult
+   activity. There's entire programming languages that try as hard as they
+   can to avoid even the concept of an error. Other languages invent
+   complex control structures like exceptions to pass error conditions
+   around. The problem exists mostly because programmers assume errors
+   don't happen and this optimism infects the type of languages they use
+   and create.
+
+   C tackles the problem by returning error codes and setting a global
+   errno value that you check. This makes for complex code that simply
+   exists to check if something you did had an error. As you write more
+   and more C code you'll write code with the pattern:
+
+    1. Call a function.
+    2. If the return value is an error (must look that up each time too).
+    3. Then cleanup all the resource created so far.
+    4. and print out an error message that hopefully helps.
+
+   This means for every function call (and yes, every function) you are
+   potentially writing 3-4 more lines just to make sure it worked. That
+   doesn't include the problem of cleaning up all of the junk you've built
+   to that point. If you have 10 different structures, 3 files, and a
+   database connection, when you get an error then you would have 14 more
+   lines.
+
+   In the past this wasn't a problem because C programs did what you've
+   been doing when there's an error: die. No point in bothering with
+   cleanup when the OS will do it for you. Today though many C programs
+   need to run for weeks, months, or years and handle errors from many
+   different sources gracefully. You can't just have your webserver die at
+   the slightest touch, and you definitely can't have a library you've
+   written nuke a the program its used in. That's just rude.
+
+   Other languages solve this problem with exceptions, but those have
+   problems in C (and in other languages too). In C you only have one
+   return value, but exceptions are an entire stack based return system
+   with arbitrary values. Trying to marshal exceptions up the stack in C
+   is difficult, and no other libraries will understand it.
+
+21.2 The Debug Macros
+
+   The solution I've been using for years is a small set of "debug macros"
+   that implement a basic debugging and error handling system for C. This
+   system is easy to understand, works with every library, and makes C
+   code more solid and clearer.
+
+   It does this by adopting the convention that whenever there's an error,
+   your function will jump to an "error:" part of the function that knows
+   how to cleanup everything and return an error code. You use a macro
+   called check to check return codes, print an error message, and then
+   jump to the cleanup section. You combine that with a set of logging
+   functions for printing out useful debug messages.
+
+   I'll now show you the entire contents of the most awesome set of
+   brilliance you've ever seen:
+     __________________________________________________________________
+
+   Source 55: dbg.h
+   1  #ifndef __dbg_h__
+   2  #define __dbg_h__
+   3
+   4  #include <stdio.h>
+   5  #include <errno.h>
+   6  #include <string.h>
+   7
+   8  #ifdef NDEBUG
+   9  #define debug(M, ...)
+   10  #else
+   11  #define debug(M, ...) fprintf(stderr, "DEBUG %s:%d: " M "\n", __FIL
+   E__, __LINE__, ##__VA_ARGS__)
+   12  #endif
+   13
+   14  #define clean_errno() (errno == 0 ? "None" : strerror(errno))
+   15
+   16  #define log_err(M, ...) fprintf(stderr, "[ERROR] (%s:%d: errno: %s)
+    " M "\n", __FILE__, __LINE__, clean_errno(), ##__VA_ARGS__)
+   17
+   18  #define log_warn(M, ...) fprintf(stderr, "[WARN] (%s:%d: errno: %s)
+    " M "\n", __FILE__, __LINE__, clean_errno(), ##__VA_ARGS__)
+   19
+   20  #define log_info(M, ...) fprintf(stderr, "[INFO] (%s:%d) " M "\n",
+   __FILE__, __LINE__, ##__VA_ARGS__)
+   21
+   22  #define check(A, M, ...) if(!(A)) { log_err(M, ##__VA_ARGS__); errn
+   o=0; goto error; }
+   23
+   24  #define sentinel(M, ...)  { log_err(M, ##__VA_ARGS__); errno=0; got
+   o error; }
+   25
+   26  #define check_mem(A) check((A), "Out of memory.")
+   27
+   28  #define check_debug(A, M, ...) if(!(A)) { debug(M, ##__VA_ARGS__);
+   errno=0; goto error; }
+   29
+   30  #endif
+     __________________________________________________________________
+
+   Yes, that's it, and here's what every line does:
+
+   dbg.h:1-2
+          The usual defense against accidentally including the file twice,
+          which you saw in the last exercise.
+
+   dbg.h:4-6
+          Includes for the functions that these macros need.
+
+   dbg.h:8
+          The start of a #ifdef which lets you recompile your program so
+          that all the debug log messages are removed.
+
+   dbg.h:9
+          If you compile with NDEBUG defined, then "no debug" messages
+          will remain. You can see in this case the #define debug() is
+          just replaced with nothing (the right side is empty).
+
+   dbg.h:10
+          The matching #else for the above #ifdef.
+
+   dbg.h:11
+          The alternative #define debug that translates any use of
+          debug("format", arg1, arg2) into an fprintf call to stderr. Many
+          C programmers don't know, but you can create macros that
+          actually work like printf and take variable arguments. Some C
+          compilers (actually cpp) don't support this, but the ones that
+          matter do. The magic here is the use of ##__VA_ARGS__ which says
+          "put whatever they had for extra arguments (...) here". Also
+          notice the use of __FILE__ and __LINE__ to get the current
+          file:line for the debug message. Very helpful.
+
+   dbg.h:12
+          The end of the #ifdef.
+
+   dbg.h:14
+          The clean_errno macro that's used in the others to get a safe
+          readable version of errno. That strange syntax in the middle is
+          a "ternary operator" and you'll learn what it does later.
+
+   dbg.h:16-20
+          The log_err, log_warn, and log_info, macros for logging messages
+          meant for the end user. Works like debug but can't be compiled
+          out.
+
+   dbg.h:22
+          The best macro ever, check will make sure the condition A is
+          true, and if not logs the error M (with variable arguments for
+          log_err), then jumps to the function's error: for cleanup.
+
+   dbg.h:24
+          The 2nd best macro ever, sentinel is placed in any part of a
+          function that shouldn't run, and if it does prints an error
+          message then jumps to the error: label. You put this in
+          if-statements and switch-statements to catch conditions that
+          shouldn't happen, like the default:.
+
+   dbg.h:26
+          A short-hand macro check_mem that makes sure a pointer is valid,
+          and if it isn't reports it as an error with "Out of memory."
+
+   dbg.h:28
+          An alternative macro check_debug that still checks and handles
+          an error, but if the error is common then you don't want to
+          bother reporting it. In this one it will use debug instead of
+          log_err to report the message, so when you define NDEBUG the
+          check still happens, the error jump goes off, but the message
+          isn't printed.
+
+21.3 Using dbg.h
+
+   Here's an example of using all of dbg.h in a small program. This
+   doesn't actually do anything but demonstrate how to use each macro, but
+   we'll be using these macros in all of the programs we write from now
+   on, so be sure to understand how to use them.
+     __________________________________________________________________
+
+   Source 56: ex20.c
+   1  #include "dbg.h"
+   2  #include <stdlib.h>
+   3  #include <stdio.h>
+   4
+   5
+   6  void test_debug()
+   7  {
+   8      // notice you don't need the \n
+   9      debug("I have Brown Hair.");
+   10
+   11      // passing in arguments like printf
+   12      debug("I am %d years old.", 37);
+   13  }
+   14
+   15  void test_log_err()
+   16  {
+   17      log_err("I believe everything is broken.");
+   18      log_err("There are %d problems in %s.", 0, "space");
+   19  }
+   20
+   21  void test_log_warn()
+   22  {
+   23      log_warn("You can safely ignore this.");
+   24      log_warn("Maybe consider looking at: %s.", "/etc/passwd");
+   25  }
+   26
+   27  void test_log_info()
+   28  {
+   29      log_info("Well I did something mundane.");
+   30      log_info("It happened %f times today.", 1.3f);
+   31  }
+   32
+   33  int test_check(char *file_name)
+   34  {
+   35      FILE *input = NULL;
+   36      char *block = NULL;
+   37
+   38      block = malloc(100);
+   39      check_mem(block); // should work
+   40
+   41      input = fopen(file_name,"r");
+   42      check(input, "Failed to open %s.", file_name);
+   43
+   44      free(block);
+   45      fclose(input);
+   46      return 0;
+   47
+   48  error:
+   49      if(block) free(block);
+   50      if(input) fclose(input);
+   51      return -1;
+   52  }
+   53
+   54  int test_sentinel(int code)
+   55  {
+   56      char *temp = malloc(100);
+   57      check_mem(temp);
+   58
+   59      switch(code) {
+   60          case 1:
+   61              log_info("It worked.");
+   62              break;
+   63          default:
+   64              sentinel("I shouldn't run.");
+   65      }
+   66
+   67      free(temp);
+   68      return 0;
+   69
+   70  error:
+   71      if(temp) free(temp);
+   72      return -1;
+   73  }
+   74
+   75  int test_check_mem()
+   76  {
+   77      char *test = NULL;
+   78      check_mem(test);
+   79
+   80      free(test);
+   81      return 1;
+   82
+   83  error:
+   84      return -1;
+   85  }
+   86
+   87  int test_check_debug()
+   88  {
+   89      int i = 0;
+   90      check_debug(i != 0, "Oops, I was 0.");
+   91
+   92      return 0;
+   93  error:
+   94      return -1;
+   95  }
+   96
+   97  int main(int argc, char *argv[])
+   98  {
+   99      check(argc == 2, "Need an argument.");
+   100
+   101      test_debug();
+   102      test_log_err();
+   103      test_log_warn();
+   104      test_log_info();
+   105
+   106      check(test_check("ex20.c") == 0, "failed with ex20.c");
+   107      check(test_check(argv[1]) == -1, "failed with argv");
+   108      check(test_sentinel(1) == 0, "test_sentinel failed.");
+   109      check(test_sentinel(100) == -1, "test_sentinel failed.");
+   110      check(test_check_mem() == -1, "test_check_mem failed.");
+   111      check(test_check_debug() == -1, "test_check_debug failed.");
+   112
+   113      return 0;
+   114
+   115  error:
+   116      return 1;
+   117  }
+     __________________________________________________________________
+
+   Pay attention to how check is used, and how when it is false it will
+   jump to the error: label to do a cleanup. The way to read those lines
+   is, "check that A is true and if not say M and jump out."
+
+21.4 What You Should See
+
+   When you run this, give it some bogus first parameter and you should
+   see this:
+     __________________________________________________________________
+
+   Source 57: ex20 output
+   1$ make ex20
+   2cc -Wall -g -DNDEBUG    ex20.c   -o ex20
+   3$ ./ex20 test
+   4[ERROR] (ex20.c:16: errno: None) I believe everything is broken.
+   5[ERROR] (ex20.c:17: errno: None) There are 0 problems in space.
+   6[WARN] (ex20.c:22: errno: None) You can safely ignore this.
+   7[WARN] (ex20.c:23: errno: None) Maybe consider looking at: /etc/passwd
+   .
+   8[INFO] (ex20.c:28) Well I did something mundane.
+   9[INFO] (ex20.c:29) It happened 1.300000 times today.
+   10[ERROR] (ex20.c:38: errno: No such file or directory) Failed to open
+   test.
+   11[INFO] (ex20.c:57) It worked.
+   12[ERROR] (ex20.c:60: errno: None) I shouldn't run.
+   13[ERROR] (ex20.c:74: errno: None) Out of memory.
+     __________________________________________________________________
+
+   See how it reports the exact line number where the check failed? That's
+   going to save you hours of debugging later. See also how it prints the
+   error message for you when errno is set? Again, that will save you
+   hours of debugging.
+
+21.5 How The CPP Expands Macros
+
+   It's now time for you to get a small introduction to the CPP so that
+   you know how these macros actually work. To do this, I'm going to break
+   down the most complex macro from dbg.h and have you run cpp so you can
+   see what it's actually doing.
+
+   Imagine I have a function called dosomething() that return the typical
+   0 for success and -1 for an error. Every time I call dosomething I have
+   to check for this error code, so I'd write code like this:
+   1int rc = dosomething();
+   2if(rc != 0) {
+   3    fprintf(stderr, "There was an error: %s\n", strerror());
+   4    goto error;
+   5}
+
+   What I want to use the CPP for is to encapsulate this if-statement I
+   have to use all the time into a more readable and memorable line of
+   code. I want what you've been doing in dbg.h with the check macro:
+   1int rc = dosomething();
+   2check(rc == 0, "There was an error.");
+
+   This is much clearer and explains exactly what's going on: check that
+   the function worked, and if not report an error. To do this, we need
+   some special CPP "tricks" that make the CPP useful as a code generation
+   tool. Take a look at the check and log_err macros again:
+   1#define log_err(M, ...) fprintf(stderr, "[ERROR] (%s:%d: errno: %s) "
+   M "\n", __FILE__, __LINE__, clean_errno(), ##__VA_ARGS__)
+   2#define check(A, M, ...) if(!(A)) { log_err(M, ##__VA_ARGS__); errno=0
+   ; goto error; }
+
+   The first macro, log_err is simpler and simply replace itself with a
+   call to fprintf to stderr. The only tricky part of this macro is the
+   use of ... in the definition log_err(M, ...). What this does is let you
+   pass variable arguments to the macro, so you can pass in the arguments
+   that should go to fprintf. How do they get injected into the fprintf
+   call? Look at the end to the ##__VA_ARGS__ and that's telling the CPP
+   to take the args entered where the ... is, and inject them at that part
+   of the fprintf call. You can then do things like this:
+
+   log_err("Age: %d, name: %s", age, name);
+
+   The arguments age, name are the ... part of the definition, and those
+   get injected into the fprintf output to become:
+   1fprintf(stderr, "[ERROR] (%s:%d: errno: %s) Age %d: name %d\n",
+   2    __FILE__, __LINE__, clean_errno(), age, name);
+
+   See the age, name at the end? That's how ... and ##__VA_ARGS__ work
+   together, and it will work in macros that call other variable argument
+   macros. Look at the check macro now and see it calls log_err, but check
+   is also using the ... and ##__VA_ARGS__ to do the call. That's how you
+   can pass full printf style format strings to check, which go to
+   log_err, and then make both work like printf.
+
+   Next thing to study is how check crafts the if-statement for the error
+   checking. If we strip out the log_err usage we see this:
+
+   if(!(A)) { errno=0; goto error; }
+
+   Which means, if A is false, then clear errno and goto the error label.
+   That has check macro being replaced with the if-statement so if we
+   manually expanded out the macro check(rc == 0, "There was an error.")
+   we'd get:
+   1if(!(rc == 0) {
+   2    log_err("There was an error.");
+   3    errno=0;
+   4    goto error;
+   5}
+
+   What you should be getting from this trip through these two macros is
+   that the CPP replaces macros with the expanded version of their
+   definition, but that it will do this recursively, expanding all the
+   macros in macros. The CPP then is just a recursive templating system,
+   as I mentioned before. Its power comes from its ability to generate
+   whole blocks of parameterized code thus becoming a handy code
+   generation tool.
+
+   That leaves one question: Why not just use a function like die? The
+   reason is you want file:line numbers and the goto operation for an
+   error handling exit. If you did this inside a function, you wouldn't
+   get a line number for where the error actually happened, and the goto
+   would be much more complicated.
+
+   Another reason is you still have to write the raw if-statement, which
+   looks like all the other if-statements in your code, so it's not as
+   clear that this one is an error check. By wrapping the if-statement in
+   a macro called check you make it clear that this is just error
+   checking, and not part of the main flow.
+
+   Finally, CPP has the ability to conditionally compile portions of code,
+   so you can have code that's only present when you build a developer or
+   debug version of the program. You can see this already in the dbg.h
+   file where the debug macro has a body only if it's asked for by the
+   compiler. Without this ability, you'd need a wasted if-statement that
+   checks for "debug mode", and then still wastes CPU doing that check for
+   no value.
+
+21.6 Extra Credit
+
+    1. Put #define NDEBUG at the top of the file and check that all the
+       debug messages go away.
+    2. Undo that line, and add -DNDEBUG to CFLAGS at the top of the
+       Makefile then recompile to see the same thing.
+    3. Modify the logging so that it include the function name as well as
+       the file:line.
+
+   [next] [prev] [prev-tail] [front] [up]
+     __________________________________________________________________
+
+   Please enable JavaScript to view the comments powered by Disqus.
+
+Take An Online Video Course
+
+   You can sign up for a video course at:
+
+   http://www.udemy.com/learn-c-the-hard-way/
+
+   This course is currently being built at the same time that the book is
+   being built, but if you sign up now then you get early access to both
+   the videos and PDF of the book.
+
+Related Books
+
+   You might want to check out these other books in the series:
+    1. Learn Ruby The Hard Way
+    2. Learn Regex The Hard Way
+    3. Learn SQL The Hard Way
+    4. Learn C The Hard Way
+    5. Learn Python The Hard Way
+
+   I'll be referencing other books shortly.
+
+   Copyright 2011 Zed A. Shaw. All Rights Reserved.

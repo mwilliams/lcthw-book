@@ -1,0 +1,273 @@
+
+   Learn C The Hard Way A Learn Code The Hard Way Book
+     * Book
+     * Comments
+     * Video Courses
+     * Related Books
+
+   [next] [prev] [prev-tail] [tail] [up]
+
+Chapter 5
+Exercise 4: Introducing Valgrind
+
+   It's time to learn about another tool you will live and die by as you
+   learn C called Valgrind. I'm introducing Valgrind to you now because
+   you're going to use it from now on in the "How To Break It" sections of
+   each exercise. Valgrind is a program that runs your programs, and then
+   reports on all of the horrible mistakes you made. It's a wonderful free
+   piece of software that I use constantly while I write C code.
+
+   Remember in the last exercise that I told you to break your code by
+   removing one of the arguments to printf? It printed out some funky
+   results, but I didn't tell you why it printed those results out. In
+   this exercise we're going to use Valgrind to find out why.
+     __________________________________________________________________
+
+   Note 3: What's With All The Tools
+
+   These first few exercises are mixing some essential tools the rest of
+   the book needs with learning a little bit of code. The reason is that
+   most of the folks who read this book are not familiar with compiled
+   languages, and definitely not with automation and helpful tools. By
+   getting you to use make and Valgrind right now I can then use them to
+   teach you C faster and help you find all your bugs early.
+
+   After this exercise we won't do many more tools, it'll be mostly code
+   and syntax for a while. But, we'll also have a few tools we can use to
+   really see what's going on and get a good understanding of common
+   mistakes and problems.
+     __________________________________________________________________
+
+5.1 Installing Valgrind
+
+   You could install Valgrind with the package manager for your OS, but I
+   want you to learn to install things from source. This involves the
+   following process:
+
+    1. Download a source archive file to get the source.
+    2. Unpack the archive to extract the files onto your computer.
+    3. Run ./configure to setup build configurations.
+    4. Run make to make it build, just like you've been doing.
+    5. Run sudo make install to install it onto your computer.
+
+   Here's a script of me doing this very process, which I want you to try
+   to replicate:
+     __________________________________________________________________
+
+   Source 15: ex4.sh
+   1  # 1) Download it (use wget if you don't have curl)
+   2  curl -O http://valgrind.org/downloads/valgrind-3.6.1.tar.bz2
+   3
+   4  # use md5sum to make sure it matches the one on the site
+   5  md5sum valgrind-3.6.1.tar.bz2
+   6
+   7  # 2) Unpack it.
+   8  tar -xjvf valgrind-3.6.1.tar.bz2
+   9
+   10  # cd into the newly created directory
+   11  cd valgrind-3.6.1
+   12
+   13  # 3) configure it
+   14  ./configure
+   15
+   16  # 4) make it
+   17  make
+   18
+   19  # 5) install it (need root)
+   20  sudo make install
+     __________________________________________________________________
+
+   Follow this, but obviously update it for new Valgrind versions. If it
+   doesn't build then try digging into why as well.
+
+5.2 Using Valgrind
+
+   Using Valgrind is easy, you just run valgrind theprogram and it runs
+   your program, then prints out all the errors your program made while it
+   was running. In this exercise we'll break down one of the error outputs
+   and you can get an instant crash course in "Valgrind hell". Then we'll
+   fix the program.
+
+   First, here's a purposefully broken version of the ex3.c code for you
+   to build, now called ex4.c. For practice, type it in again:
+     __________________________________________________________________
+
+   Source 16: ex4.c
+   1  #include <stdio.h>
+   2
+   3  /* Warning: This program is wrong on purpose. */
+   4
+   5  int main()
+   6  {
+   7      int age = 10;
+   8      int height;
+   9
+   10      printf("I am %d years old.\n");
+   11      printf("I am %d inches tall.\n", height);
+   12
+   13      return 0;
+   14  }
+     __________________________________________________________________
+
+   You'll see it's the same except I've made two classic mistakes:
+    1. I've failed to initialize the height variable.
+    2. I've forgot to give the first printf the age variable.
+
+5.3 What You Should See
+
+   Now we will build this just like normal, but instead of running it
+   directly, we'll run it with Valgrind (see Source: "Building and running
+   ex4.c with Valgrind"):
+     __________________________________________________________________
+
+   Source 17: Building and running ex4.c with Valgrind
+   1$ make ex4
+   2cc -Wall -g    ex4.c   -o ex4
+   3ex4.c: In function 'main':
+   4ex4.c:10: warning: too few arguments for format
+   5ex4.c:7: warning: unused variable 'age'
+   6ex4.c:11: warning: 'height' is used uninitialized in this function
+   7$ valgrind ./ex4
+   8==3082== Memcheck, a memory error detector
+   9==3082== Copyright (C) 2002-2010, and GNU GPL'd, by Julian Seward et a
+   l.
+   10==3082== Using Valgrind-3.6.0.SVN-Debian and LibVEX; rerun with -h fo
+   r copyright info
+   11==3082== Command: ./ex4
+   12==3082==
+   13I am -16775432 years old.
+   14==3082== Use of uninitialised value of size 8
+   15==3082==    at 0x4E730EB: _itoa_word (_itoa.c:195)
+   16==3082==    by 0x4E743D8: vfprintf (vfprintf.c:1613)
+   17==3082==    by 0x4E7E6F9: printf (printf.c:35)
+   18==3082==    by 0x40052B: main (ex4.c:11)
+   19==3082==
+   20==3082== Conditional jump or move depends on uninitialised value(s)
+   21==3082==    at 0x4E730F5: _itoa_word (_itoa.c:195)
+   22==3082==    by 0x4E743D8: vfprintf (vfprintf.c:1613)
+   23==3082==    by 0x4E7E6F9: printf (printf.c:35)
+   24==3082==    by 0x40052B: main (ex4.c:11)
+   25==3082==
+   26==3082== Conditional jump or move depends on uninitialised value(s)
+   27==3082==    at 0x4E7633B: vfprintf (vfprintf.c:1613)
+   28==3082==    by 0x4E7E6F9: printf (printf.c:35)
+   29==3082==    by 0x40052B: main (ex4.c:11)
+   30==3082==
+   31==3082== Conditional jump or move depends on uninitialised value(s)
+   32==3082==    at 0x4E744C6: vfprintf (vfprintf.c:1613)
+   33==3082==    by 0x4E7E6F9: printf (printf.c:35)
+   34==3082==    by 0x40052B: main (ex4.c:11)
+   35==3082==
+   36I am 0 inches tall.
+   37==3082==
+   38==3082== HEAP SUMMARY:
+   39==3082==     in use at exit: 0 bytes in 0 blocks
+   40==3082==   total heap usage: 0 allocs, 0 frees, 0 bytes allocated
+   41==3082==
+   42==3082== All heap blocks were freed -- no leaks are possible
+   43==3082==
+   44==3082== For counts of detected and suppressed errors, rerun with: -v
+
+   45==3082== Use --track-origins=yes to see where uninitialised values co
+   me from
+   46==3082== ERROR SUMMARY: 4 errors from 4 contexts (suppressed: 4 from
+   4)
+   47$
+     __________________________________________________________________
+
+   This one is huge because Valgrind is telling you exactly where every
+   problem in your program is. Starting at the top here's what you're
+   reading, line by line (line numbers are on the left so you can follow):
+
+   1
+          You do the usual make ex4 and that builds it. Make sure the cc
+          command you see is the same and has the -g option or your
+          Valgrind output won't have line numbers.
+
+   2-6
+          Notice that the compiler is also yelling at you about this
+          source file and it warns you that you have "too few arguments
+          for format". That's where you forgot to include the age
+          variable.
+
+   7
+          Then you run your program using valgrind ./ex4.
+
+   8
+          Then Valgrind goes crazy and yells at you for:
+
+        14-18
+                On line main (ex4.c:11) (read as "in the main function in
+                file ex4.c at line 11) you have "Use of uninitialised
+                value of size 8". You find this by looking at the error,
+                then you see what's called a "stack trace" right under
+                that. The line to look at first (ex4.c:11) is the bottom
+                one, and if you don't see what's going wrong then you go
+                up, so you'd try printf.c:35. Typically it's the bottom
+                most line that matters (in this case, on line 18).
+
+        20-24
+                Next error is yet another one on line ex4.c:11 in the main
+                function. Valgrind hates this line. This error says that
+                some kind of if-statement or while-loop happened that was
+                based on an uninitialized variable, in this case height.
+
+        25-35
+                The remaining errors are more of the same because the
+                variable keeps getting used.
+
+   37-46
+          Finally the program exits and Valgrind tells you a summary of
+          how bad your program is.
+
+   That is quite a lot of information to take in, but here's how you deal
+   with it:
+    1. Whenever you run your C code and get it working, rerun it under
+       Valgrind to check it.
+    2. For each error that you get, go to the source:line indicated and
+       fix it. You may have to search online for the error message to
+       figure out what it means.
+    3. Once your program is "Valgrind pure" then it should be good, and
+       you have probably learned something about how you write code.
+
+   In this exercise I'm not expecting you to fully grasp Valgrind right
+   away, but instead get it installed and learn how to use it real quick
+   so we can apply it to all the later exercises.
+
+5.4 Extra Credit
+
+    1. Fix this program using Valgrind and the compiler as your guide.
+    2. Read up on Valgrind on the internet.
+    3. Download other software and build it by hand. Try something you
+       already use but never built for yourself.
+    4. Look at how the Valgrind source files are laid out in the source
+       directory and read its Makefile. Don't worry, none of that makes
+       sense to me either.
+
+   [next] [prev] [prev-tail] [front] [up]
+     __________________________________________________________________
+
+   Please enable JavaScript to view the comments powered by Disqus.
+
+Take An Online Video Course
+
+   You can sign up for a video course at:
+
+   http://www.udemy.com/learn-c-the-hard-way/
+
+   This course is currently being built at the same time that the book is
+   being built, but if you sign up now then you get early access to both
+   the videos and PDF of the book.
+
+Related Books
+
+   You might want to check out these other books in the series:
+    1. Learn Ruby The Hard Way
+    2. Learn Regex The Hard Way
+    3. Learn SQL The Hard Way
+    4. Learn C The Hard Way
+    5. Learn Python The Hard Way
+
+   I'll be referencing other books shortly.
+
+   Copyright 2011 Zed A. Shaw. All Rights Reserved.

@@ -1,0 +1,522 @@
+
+   Learn C The Hard Way A Learn Code The Hard Way Book
+     * Book
+     * Comments
+     * Video Courses
+     * Related Books
+
+   [next] [prev] [prev-tail] [tail] [up]
+
+Chapter 29
+Exercise 28: Intermediate Makefiles
+
+   In the next three Exercises you'll create a skeleton project directory
+   to use in building your C programs later. This skeleton directory will
+   be used in the rest of the book, and in this exercise I'll cover just
+   the Makefile so you can understand it.
+
+   The purpose of this structure is to make it easy to build medium sized
+   programs without having to resort to configure tools. If done right you
+   can get very far with just GNU make and some small shell scripts.
+
+29.1 The Basic Project Structure
+
+   The first thing to do is make a c-skeleton directory and then put a set
+   of basic files and directories in it that many projects have. Here's my
+   starter:
+     __________________________________________________________________
+
+   Source 78: Initial C Project Skeleton
+   1  $ mkdir c-skeleton
+   2  $ cd c-skeleton/
+   3  $ touch LICENSE README.md Makefile
+   4  $ mkdir bin src tests
+   5  $ cp dbg.h src/   # this is from Ex20
+   6  $ ls -l
+   7  total 8
+   8  -rw-r--r--  1 zedshaw  staff     0 Mar 31 16:38 LICENSE
+   9  -rw-r--r--  1 zedshaw  staff  1168 Apr  1 17:00 Makefile
+   10  -rw-r--r--  1 zedshaw  staff     0 Mar 31 16:38 README.md
+   11  drwxr-xr-x  2 zedshaw  staff    68 Mar 31 16:38 bin
+   12  drwxr-xr-x  2 zedshaw  staff    68 Apr  1 10:07 build
+   13  drwxr-xr-x  3 zedshaw  staff   102 Apr  3 16:28 src
+   14  drwxr-xr-x  2 zedshaw  staff    68 Mar 31 16:38 tests
+   15  $ ls -l src
+   16  total 8
+   17  -rw-r--r--  1 zedshaw  staff  982 Apr  3 16:28 dbg.h
+   18  $
+     __________________________________________________________________
+
+   At the end you see me do an ls -l so you can see the final results.
+
+   Here's what each of these does:
+
+   LICENSE
+          If you release the source of your projects you'll want to
+          include a license. If you don't though, the code is copyright by
+          you and nobody has rights to it by default.
+
+   README.md
+          Basic instructions for using your project go here. It ends in
+          .md so that it will be interpreted as markdown.
+
+   Makefile
+          The main build file for the project.
+
+   bin/
+          Where programs that users can run go. This is usually empty and
+          the Makefile will create it if it's not there.
+
+   build/
+          Where libraries and other build artifacts go. Also empty and the
+          Makefile will create it if it's not there.
+
+   src/
+          Where the source code goes, usually .c and .h files.
+
+   tests/
+          Where automated tests go.
+
+   src/dbg.h
+          I copied the dbg.h from Exercise 20 into src/ for later.
+
+   I'll now break down each of the components of this skeleton project so
+   you can understand how it works.
+
+29.2 Makefile
+
+   The first thing I'll cover is the Makefile because from that you can
+   understand how everything else works. The Makefile in this exercise is
+   much more detailed than ones you've used so far, so I'm going to break
+   it down after you type it in:
+     __________________________________________________________________
+
+   Source 79: c-skeleton/Makefile
+   1CFLAGS=-g -O2 -Wall -Wextra -Isrc -rdynamic -DNDEBUG $(OPTFLAGS)
+   2LIBS=-ldl $(OPTLIBS)
+   3PREFIX?=/usr/local
+   4
+   5SOURCES=$(wildcard src/**/*.c src/*.c)
+   6OBJECTS=$(patsubst %.c,%.o,$(SOURCES))
+   7
+   8TEST_SRC=$(wildcard tests/*_tests.c)
+   9TESTS=$(patsubst %.c,%,$(TEST_SRC))
+   10
+   11TARGET=build/libYOUR_LIBRARY.a
+   12SO_TARGET=$(patsubst %.a,%.so,$(TARGET))
+   13
+   14# The Target Build
+   15all: $(TARGET) $(SO_TARGET) tests
+   16
+   17dev: CFLAGS=-g -Wall -Isrc -Wall -Wextra $(OPTFLAGS)
+   18dev: all
+   19
+   20$(TARGET): CFLAGS += -fPIC
+   21$(TARGET): build $(OBJECTS)
+   22        ar rcs $@ $(OBJECTS)
+   23        ranlib $@
+   24
+   25$(SO_TARGET): $(TARGET) $(OBJECTS)
+   26        $(CC) -shared -o $@ $(OBJECTS)
+   27
+   28build:
+   29        @mkdir -p build
+   30        @mkdir -p bin
+   31
+   32# The Unit Tests
+   33.PHONY: tests
+   34tests: CFLAGS += $(TARGET)
+   35tests: $(TESTS)
+   36        sh ./tests/runtests.sh
+   37
+   38valgrind:
+   39        VALGRIND="valgrind --log-file=/tmp/valgrind-%p.log" $(MAKE)
+   40
+   41# The Cleaner
+   42clean:
+   43        rm -rf build $(OBJECTS) $(TESTS)
+   44        rm -f tests/tests.log
+   45        find . -name "*.gc*" -exec rm {} \;
+   46        rm -rf `find . -name "*.dSYM" -print`
+   47
+   48# The Install
+   49install: all
+   50        install -d $(DESTDIR)/$(PREFIX)/lib/
+   51        install $(TARGET) $(DESTDIR)/$(PREFIX)/lib/
+   52
+   53# The Checker
+   54BADFUNCS='[^_.>a-zA-Z0-9](str(n?cpy|n?cat|xfrm|n?dup|str|pbrk|tok|_)|
+   stpn?cpy|a?sn?printf|byte_)'
+   55check:
+   56        @echo Files with potentially dangerous functions.
+   57        @egrep $(BADFUNCS) $(SOURCES) || true
+     __________________________________________________________________
+
+   Remember that you need to indent the Makefile consistently with tab
+   characters. Your editor should know that and do the right thing, but if
+   it doesn't then get a different text editor. No programmer should use
+   an editor that fails at something so simple.
+
+29.2.1 The Header
+
+   This makefile is designed to build a library we'll be working on later
+   and to do so reliably on almost any platform by using special features
+   of GNU make. I'll break down each part in sections, starting with the
+   header.
+
+   Makefile:1
+          These are the usual CFLAGS that you set in all of your projects,
+          but with a few others that may be needed to build libraries. You
+          may need to adjust these for different platforms. Notice the
+          OPTFLAGS variable at the end which lets people augment the build
+          options as needed.
+
+   Makefile:2
+          Options used when linking a library, and allows someone else to
+          augment the linking options using the OPTLIBS variable.
+
+   Makefile:3
+          Setting an optional variable called PREFIX that will only have
+          this value if the person running the Makefile didn't already
+          give a PREFIX setting. That's what the ?= does.
+
+   Makefile:5
+          This fancy line of awesome dynamically creates the SOURCES
+          variable by doing a wildcard search for all *.c files in the
+          src/ directory. You have to give both src/**/*.c and src/*.c so
+          that GNU make will include the files in src and also the ones
+          below it.
+
+   Makefile:6
+          Once you have the list of source files, you can then use the
+          patsubst to take the SOURCES list of *.c files and make a new
+          list of all the object files. You do this by telling patsubst to
+          change all %.c extensions to %.o and then those are assigned to
+          OBJECTS.
+
+   Makefile:8
+          Using the wildcard again to find all the test source files for
+          the unit tests. These are separate from the library's source
+          files.
+
+   Makefile:9
+          Then using the same patsubst trick to dynamically get all the
+          TEST targets. In this case I'm stripping away the .c extension
+          so that a full program will be made with the same name.
+          Previously I had replaced the .c with .o so an object file is
+          created.
+
+   Makefile:11
+          Finally, we say the ultimate target is build/libYOUR_LIBRARY.a,
+          which you will change to be whatever library you are actually
+          trying to build.
+
+   This completes the top of the Makefile, but I should explain what I
+   mean by "lets people augment the build". When you run make you can do
+   this:
+     __________________________________________________________________
+
+   Source 80: A Changing A Make Build
+     # WARNING! Just a demonstration, won't really work right now.
+     # this installs the library into /tmp
+     $ make PREFIX=/tmp install
+     # this tells it to add pthreads
+     $ make OPTFLAGS=-pthread
+     __________________________________________________________________
+
+   If you pass in options that match the same kind of variables you have
+   in your Makefile, then those will show up in your build. You can then
+   use this to change how the Makefile runs. The first one alters the
+   PREFIX so that it installs into /tmp instead. The second one sets
+   OPTFLAGS so that the -pthread option is present.
+
+29.2.2 The Target Build
+
+   Continuing with the breakdown of the Makefile I have actually building
+   the object files and targets:
+
+   Makefile:14
+          Remember that the first target is what make will run by default
+          when no target is given. In this case it's called all: and it
+          gives $(TARGET) tests as the targets to build. Look up at the
+          TARGET variable and you see that's the library, so all: will
+          first build the library. The tests target is then further down
+          in the Makefile and builds the unit tests.
+
+   Makefile:16
+          Another target for making "developer builds" that introduces a
+          technique for changing options for just one target. If I do a
+          "dev build" I want the CFLAGS to include options like -Wextra
+          that are useful for finding bugs. If you place them on the
+          target line as options like this, then give another line that
+          says the original target (in this case all) then it will change
+          the options you set. I use this for setting different flags on
+          different platforms that need it.
+
+   Makefile:19
+          Builds the TARGET library, whatever that is, and also uses the
+          same trick from line 15 of giving a target with just options
+          changes to alter them for this run. In this case I'm adding
+          -fPIC just for the library build using the += syntax to add it
+          on.
+
+   Makefile:20
+          Now the real target where I say first make the build directory,
+          then compile all the OBJECTS.
+
+   Makefile:21
+          Runs the ar command which actually makes the TARGET. The syntax
+          $@ $(OBJECTS) is a way of saying, "put the target for this
+          Makefile source here and all the OBJECTS after that". In this
+          case the $@ maps back to the $(TARGET) on line 19, which maps to
+          build/libYOUR_LIBRARY.a. It seems like a lot to keep track of
+          this indirection, and it can be, but once you get it working
+          this means you just change TARGET at the top and build a whole
+          new library.
+
+   Makefile:22
+          Finally, to make the library you run ranlib on the TARGET and
+          it's built.
+
+   Makefile:24-24
+          This just makes the build/ or bin/ directories if they don't
+          exist. This is then referenced from line 19 when it gives the
+          build target to make sure the build/ directory is made.
+
+   You now have all the stuff you need to build the software, so we'll
+   create a way to build and run unit tests to do automated testing.
+
+29.2.3 The Unit Tests
+
+   C is different from other languages because it's easier to create one
+   tiny little program for each thing you're testing. Some testing
+   frameworks try to emulate the module concept other languages have and
+   do dynamic loading, but this doesn't work well in C. It's also
+   unnecessary because you can just make a single program that's run for
+   each test instead.
+
+   I'll cover this part of the Makefile, and then later you'll see the
+   contents of the tests/ directory that make it actually work.
+
+   Makefile:29
+          If you have a target that's not "real", but there is a directory
+          or file with that name, then you need to tag the target with
+          .PHONY: so make will ignore the file and always run.
+
+   Makefile:30
+          I use the same trick for modifying the CFLAGS variable to add
+          the TARGET to the build so that each of the test programs will
+          be linked with the TARGET library. In this case it will add
+          build/libYOUR_LIBRARY.a to the linking.
+
+   Makefile:31
+          Then I have the actual tests: target which depends on all the
+          programs listed in the TESTS variable we created in the header.
+          This one line actually says, "Make, use what you know about
+          building programs and the current CFLAGS settings to build each
+          program in TESTS."
+
+   Makefile:32
+          Finally, when all of the TESTS are built, there's a simple shell
+          script I'll create later that knows how to run them all and
+          report their output. This line actually runs it so you can see
+          the test results.
+
+   Makefile:34-35
+          In order to be able to dynamically rerun the tests with Valgrind
+          there's a valgrind: target that sets the right variable and runs
+          itself again. This puts the valgrind logs into
+          /tmp/valgrind-*.log so you can go look and see what might be
+          going on. The tests/runtests.sh then knows to run the test
+          programs under Valgrind when it sees this VALGRIND variable.
+
+   For the unit testing to work you'll need to create a little shell
+   script that knows how to run the programs. Go ahead and create this
+   tests/runtests.sh script:
+     __________________________________________________________________
+
+   Source 81: tests/runtests.sh
+   1  echo "Running unit tests:"
+   2
+   3  for i in tests/*_tests
+   4  do
+   5      if test -f $i
+   6      then
+   7          if $VALGRIND ./$i 2>> tests/tests.log
+   8          then
+   9              echo $i PASS
+   10          else
+   11              echo "ERROR in test $i: here's tests/tests.log"
+   12              echo "------"
+   13              tail tests/tests.log
+   14              exit 1
+   15          fi
+   16      fi
+   17  done
+   18
+   19  echo ""
+     __________________________________________________________________
+
+   I'll be using this later when I cover how unit tests work.
+
+29.2.4 The Cleaner
+
+   I now have fully working unit tests, so next up is making things clean
+   when I need to reset everything.
+
+   Makefile:38
+          The clean: target starts things off whenever we need to clean up
+          the project.
+
+   Makefile:39-42
+          This cleans out most of the junk that various compilers and
+          tools leave behind. It also gets rid of the build/ directory and
+          uses a trick at the end to cleanly erase the weird *.dSYM
+          directories Apple's XCode leaves behind for debugging purposes.
+
+   If you run into junk that you need to clean out, simply augment the
+   list of things being deleted in this target.
+
+29.2.5 The Install
+
+   After that I'll need a way to install the project, and for a Makefile
+   that's building a library I just need to put something in the common
+   PREFIX directory, which is usually /usr/local/lib.
+
+   Makefile:45
+          This makes install: depend on the all: target so that when you
+          run make install it will be sure to build everything.
+
+   Makefile:46
+          I then use the program install to create the target lib
+          directory if it doesn't exist. In this case I'm trying to make
+          the install as flexible as possible by using two variables that
+          are conventions for installers. DESTDIR is handed to make by
+          installers that do their builds in secure or odd locations to
+          build packages. PREFIX is used when people want the project to
+          be installed in someplace other than /usr/local.
+
+   Makefile:47
+          After that I'm just using install to actually install the
+          library where it needs to go.
+
+   The purpose of the install program is to make sure things have the
+   right permissions set. When you run make install you usually have to do
+   it as the root user, so the typical build process is
+   make && sudo make install.
+
+29.2.6 The Checker
+
+   The very last part of this Makefile is a bonus that I include in my C
+   projects to help me dig out any attempts to use the "bad" functions in
+   C. Namely the string functions and other "unprotected buffer"
+   functions.
+
+   Makefile:50
+          Sets a variable which is a big regex looking for bad functions
+          like strcpy.
+
+   Makefile:51
+          The check: target so you can run a check whenever you need.
+
+   Makefile:52
+          Just a way to print a message, but doing @echo tells make to not
+          print the command, just its output.
+
+   Makefile:53
+          Run the egrep command on the source files looking for any bad
+          patterns. The || true at the end is a way to prevent make from
+          thinking that egrep not finding things is a failure.
+
+   When you run this it will have the odd effect that you'll get an error
+   when there is nothing bad going on.
+
+29.3 What You Should See
+
+   I have two more exercises to go before I'm done building the project
+   skeleton directory, but here's me testing out the features of the
+   Makefile.
+     __________________________________________________________________
+
+   Source 82: Checking The Makefile
+   1  $ make clean
+   2  rm -rf build
+   3  rm -f tests/tests.log
+   4  find . -name "*.gc*" -exec rm {} \;
+   5  rm -rf `find . -name "*.dSYM" -print`
+   6  $ make check
+   7  Files with potentially dangerous functions.
+   8  ^Cmake: *** [check] Interrupt: 2
+   9
+   10  $ make
+   11  ar rcs build/libYOUR_LIBRARY.a
+   12  ar: no archive members specified
+   13  usage:  ar -d [-TLsv] archive file ...
+   14   ar -m [-TLsv] archive file ...
+   15   ar -m [-abiTLsv] position archive file ...
+   16   ar -p [-TLsv] archive [file ...]
+   17   ar -q [-cTLsv] archive file ...
+   18   ar -r [-cuTLsv] archive file ...
+   19   ar -r [-abciuTLsv] position archive file ...
+   20   ar -t [-TLsv] archive [file ...]
+   21   ar -x [-ouTLsv] archive [file ...]
+   22  make: *** [build/libYOUR_LIBRARY.a] Error 1
+   23  $ make valgrind
+   24  VALGRIND="valgrind --log-file=/tmp/valgrind-%p.log" make
+   25  ar rcs build/libYOUR_LIBRARY.a
+   26  ar: no archive members specified
+   27  usage:  ar -d [-TLsv] archive file ...
+   28   ar -m [-TLsv] archive file ...
+   29   ar -m [-abiTLsv] position archive file ...
+   30   ar -p [-TLsv] archive [file ...]
+   31   ar -q [-cTLsv] archive file ...
+   32   ar -r [-cuTLsv] archive file ...
+   33   ar -r [-abciuTLsv] position archive file ...
+   34   ar -t [-TLsv] archive [file ...]
+   35   ar -x [-ouTLsv] archive [file ...]
+   36  make[1]: *** [build/libYOUR_LIBRARY.a] Error 1
+   37  make: *** [valgrind] Error 2
+   38  $
+     __________________________________________________________________
+
+   When I run the clean: target that works, but because I don't have any
+   source files in the src/ directory none of the other commands really
+   work. I'll finish that up in the next exercises.
+
+29.4 Extra Credit
+
+    1. Try to get the Makefile to actually work by putting a source and
+       header file in src/ and making the library. You shouldn't need a
+       main function in the source file.
+    2. Research what functions the check: target is looking for in the
+       BADFUNCS regular expression it's using.
+    3. If you don't do automated unit testing, then go read about it so
+       you're prepared later.
+
+   [next] [prev] [prev-tail] [front] [up]
+     __________________________________________________________________
+
+   Please enable JavaScript to view the comments powered by Disqus.
+
+Take An Online Video Course
+
+   You can sign up for a video course at:
+
+   http://www.udemy.com/learn-c-the-hard-way/
+
+   This course is currently being built at the same time that the book is
+   being built, but if you sign up now then you get early access to both
+   the videos and PDF of the book.
+
+Related Books
+
+   You might want to check out these other books in the series:
+    1. Learn Ruby The Hard Way
+    2. Learn Regex The Hard Way
+    3. Learn SQL The Hard Way
+    4. Learn C The Hard Way
+    5. Learn Python The Hard Way
+
+   I'll be referencing other books shortly.
+
+   Copyright 2011 Zed A. Shaw. All Rights Reserved.

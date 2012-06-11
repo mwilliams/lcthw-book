@@ -1,0 +1,349 @@
+
+   Learn C The Hard Way A Learn Code The Hard Way Book
+     * Book
+     * Comments
+     * Video Courses
+     * Related Books
+
+   [next] [prev] [prev-tail] [tail] [up]
+
+Contents
+
+   I  Basic Skills
+   1 Exercise 0: The Setup
+    1.1 Linux
+    1.2 Mac OSX
+    1.3 Windows
+    1.4 Text Editor
+     1.4.1 WARNING: Do Not Use An IDE
+   2 Exercise 1: Dust Off That Compiler
+    2.1 What You Should See
+    2.2 How To Break It
+    2.3 Extra Credit
+   3 Exercise 2: Make Is Your Python Now
+    3.1 Using Make
+    3.2 What You Should See
+    3.3 How To Break It
+    3.4 Extra Credit
+   4 Exercise 3: Formatted Printing
+    4.1 What You Should See
+    4.2 External Research
+    4.3 How To Break It
+    4.4 Extra Credit
+   5 Exercise 4: Introducing Valgrind
+    5.1 Installing Valgrind
+    5.2 Using Valgrind
+    5.3 What You Should See
+    5.4 Extra Credit
+   6 Exercise 5: The Structure Of A C Program
+    6.1 What You Should See
+    6.2 Breaking It Down
+    6.3 Extra Credit
+   7 Exercise 6: Types Of Variables
+    7.1 What You Should See
+    7.2 How To Break It
+    7.3 Extra Credit
+   8 Exercise 7: More Variables, Some Math
+    8.1 What You Should See
+    8.2 How To Break It
+    8.3 Extra Credit
+   9 Exercise 8: Sizes And Arrays
+    9.1 What You Should See
+    9.2 How To Break It
+    9.3 Extra Credit
+   10 Exercise 9: Arrays And Strings
+    10.1 What You Should See
+    10.2 How To Break It
+    10.3 Extra Credit
+   11 Exercise 10: Arrays Of Strings, Looping
+    11.1 What You Should See
+     11.1.1 Understanding Arrays Of Strings
+    11.2 How To Break It
+    11.3 Extra Credit
+   12 Exercise 11: While-Loop And Boolean Expressions
+    12.1 What You Should See
+    12.2 How To Break It
+    12.3 Extra Credit
+   13 Exercise 12: If, Else-If, Else
+    13.1 What You Should See
+    13.2 How To Break It
+    13.3 Extra Credit
+   14 Exercise 13: Switch Statement
+    14.1 What You Should See
+    14.2 How To Break It
+    14.3 Extra Credit
+   15 Exercise 14: Writing And Using Functions
+    15.1 What You Should See
+    15.2 How To Break It
+    15.3 Extra Credit
+   16 Exercise 15: Pointers Dreaded Pointers
+    16.1 What You Should See
+    16.2 Explaining Pointers
+    16.3 Practical Pointer Usage
+    16.4 The Pointer Lexicon
+    16.5 Pointers Are Not Arrays
+    16.6 How To Break It
+    16.7 Extra Credit
+   17 Exercise 16: Structs And Pointers To Them
+    17.1 What You Should See
+    17.2 Explaining Structures
+    17.3 How To Break It
+    17.4 Extra Credit
+   18 Exercise 17: Heap And Stack Memory Allocation
+    18.1 What You Should See
+    18.2 Heap vs. Stack Allocation
+    18.3 How To Break It
+    18.4 Extra Credit
+   19 Exercise 18: Pointers To Functions
+    19.1 What You Should See
+    19.2 How To Break It
+    19.3 Extra Credit
+   20 Exercise 19: A Simple Object System
+    20.1 How The CPP Works
+    20.2 The Prototype Object System
+     20.2.1 The Object Header File
+     20.2.2 The Object Source File
+    20.3 The Game Implementation
+    20.4 What You Should See
+    20.5 Auditing The Game
+    20.6 Extra Credit
+   21 Exercise 20: Zed's Awesome Debug Macros
+    21.1 The C Error Handling Problem
+    21.2 The Debug Macros
+    21.3 Using dbg.h
+    21.4 What You Should See
+    21.5 How The CPP Expands Macros
+    21.6 Extra Credit
+   22 Exercise 21: Advanced Data Types And Flow Control
+    22.1 Available Data Types
+     22.1.1 Type Modifiers
+     22.1.2 Type Qualifiers
+     22.1.3 Type Conversion
+     22.1.4 Type Sizes
+    22.2 Available Operators
+     22.2.1 Math Operators
+     22.2.2 Data Operators
+     22.2.3 Logic Operators
+     22.2.4 Bit Operators
+     22.2.5 Boolean Operators
+     22.2.6 Assignment Operators
+    22.3 Available Control Structures
+     22.3.1 Extra Credit
+   23 Exercise 22: The Stack, Scope, And Globals
+     23.0.2 ex22.h and ex22.c
+     23.0.3 ex22_main.c
+    23.1 What You Should See
+    23.2 Scope, Stack, And Bugs
+    23.3 How To Break It
+    23.4 Extra Credit
+   24 Exercise 23: Meet Duff's Device
+    24.1 What You Should See
+    24.2 Solving The Puzzle
+     24.2.1 Why Bother?
+    24.3 Extra Credit
+   25 Exercise 24: Input, Output, Files
+    25.1 What You Should See
+    25.2 How To Break It
+    25.3 The I/O Functions
+    25.4 Extra Credit
+   26 Exercise 25: Variable Argument Functions
+    26.1 What You Should See
+    26.2 How To Break It
+    26.3 Extra Credit
+   27 Exercise 26: Write A First Real Program
+    27.1 What Is devpkg?
+     27.1.1 What We Want To Make
+     27.1.2 The Design
+     27.1.3 The Apache Portable Runtime
+    27.2 Project Layout
+     27.2.1 Other Dependencies
+    27.3 The Makefile
+    27.4 The Source Files
+     27.4.1 The DB Functions
+     27.4.2 The Shell Functions
+     27.4.3 The Command Functions
+     27.4.4 The devpkg Main Function
+    27.5 The Mid-Term Exam
+   II  Data Structures And Algorithms
+   28 Exercise 27: Creative And Defensive Programming
+    28.1 The Creative Programmer Mindset
+    28.2 The Defensive Programmer Mindset
+    28.3 The Eight Defensive Programmer Strategies
+    28.4 Applying The Eight Strategies
+     28.4.1 Never Trust Input
+     28.4.2 Prevent Errors
+     28.4.3 Fail Early And Openly
+     28.4.4 Document Assumptions
+     28.4.5 Prevention Over Documentation
+     28.4.6 Automate Everything
+     28.4.7 Simplify And Clarify
+     28.4.8 Question Authority
+    28.5 Order Is Not Important
+    28.6 Extra Credit
+   29 Exercise 28: Intermediate Makefiles
+    29.1 The Basic Project Structure
+    29.2 Makefile
+     29.2.1 The Header
+     29.2.2 The Target Build
+     29.2.3 The Unit Tests
+     29.2.4 The Cleaner
+     29.2.5 The Install
+     29.2.6 The Checker
+    29.3 What You Should See
+    29.4 Extra Credit
+   30 Exercise 29: Libraries And Linking
+     30.0.1 Dynamically Loading A Shared Library
+    30.1 What You Should See
+    30.2 How To Break It
+    30.3 Extra Credit
+   31 Exercise 30: Automated Testing
+    31.1 Wiring Up The Test Framework
+    31.2 Extra Credit
+   32 Exercise 31: Debugging Code
+    32.1 Debug Printing Vs. GDB Vs. Valgrind
+    32.2 A Debugging Strategy
+    32.3 Using GDB
+    32.4 Process Attaching
+    32.5 GDB Tricks
+    32.6 Extra Credit
+   33 Exercise 32: Double Linked Lists
+    33.1 What Are Data Structures
+    33.2 Making The Library
+    33.3 Double Linked Lists
+     33.3.1 Definition
+     33.3.2 Implementation
+    33.4 Tests
+    33.5 What You Should See
+    33.6 How To Improve It
+    33.7 Extra Credit
+   34 Exercise 33: Linked List Algorithms
+     34.0.1 Bubble And Merge Sort
+     34.0.2 The Unit Test
+     34.0.3 The Implementation
+    34.1 What You Should See
+    34.2 How To Improve It
+    34.3 Extra Credit
+   35 Exercise 34: Dynamic Array
+    35.1 Advantages And Disadvantages
+    35.2 How To Improve It
+    35.3 Extra Credit
+   36 Exercise 35: Sorting And Searching
+    36.1 Radix Sort And Binary Search
+     36.1.1 C Unions
+     36.1.2 The Implementation
+     36.1.3 RadixMap_find And Binary Search
+     36.1.4 RadixMap_sort And radix_sort
+    36.2 How To Improve It
+    36.3 Extra Credit
+   37 Exercise 36: Safer Strings
+    37.1 Why C Strings Were A Horrible Idea
+    37.2 Using bstrlib
+    37.3 Learning The Library
+   38 Exercise 37: Hashmaps
+     38.0.1 The Unit Test
+    38.1 How To Improve It
+    38.2 Extra Credit
+   39 Exercise 38: Hashmap Algorithms
+    39.1 What You Should See
+    39.2 How To Break It
+    39.3 Extra Credit
+   40 Exercise 39: String Algorithms
+    40.1 What You Should See
+    40.2 Analyzing The Results
+    40.3 Extra Credit
+   41 Exercise 40: Binary Search Trees
+    41.1 How To Improve It
+    41.2 Extra Credit
+   42 Exercise 41: Using Cachegrind And Callgrind For Performance Tuning
+    42.1 Running Callgrind
+    42.2 Callgrind Annotating Source
+    42.3 Analyzing Memory Access With Cachegrind
+    42.4 Judo Tuning
+    42.5 Using KCachegrind
+    42.6 Extra Credit
+   43 Exercise 42: Stacks and Queues
+    43.1 What You Should See
+    43.2 How To Improve It
+    43.3 Extra Credit
+   44 Exercise 43: A Simple Statistics Engine
+    44.1 Rolling Standard Deviation And Mean
+    44.2 Implemention
+    44.3 How To Use It
+    44.4 Extra Credit
+   45 Exercise 44: Ring Buffer
+    45.1 The Unit Test
+    45.2 What You Should See
+    45.3 How To Improve It
+    45.4 Extra Credit
+   46 Exercise 45: A Simple TCP/IP Client
+    46.1 Augment The Makefile
+    46.2 The netclient Code
+    46.3 What You Should See
+    46.4 How To Break It
+    46.5 Extra Credit
+   47 Exercise 46: Ternary Search Tree
+    47.1 Advantages And Disadvantages
+    47.2 How To Improve It
+    47.3 Extra Credit
+   48 Exercise 47: A Fast URL Router
+    48.1 What You Should See
+    48.2 How To Improve It
+    48.3 Extra Credit
+   49 Exercise 48: A Tiny Virtual Machine Part 1
+    49.1 What You Should See
+    49.2 How To Break It
+    49.3 Extra Credit
+   50 Exercise 48: A Tiny Virtual Machine Part 2
+    50.1 What You Should See
+    50.2 How To Break It
+    50.3 Extra Credit
+   51 Exercise 50: A Tiny Virtual Machine Part 3
+    51.1 What You Should See
+    51.2 How To Break It
+    51.3 Extra Credit
+   52 Exercise 51: A Tiny Virtual Machine Part 4
+    52.1 What You Should See
+    52.2 How To Break It
+    52.3 Extra Credit
+   53 Exercise 52: A Tiny Virtual Machine Part 5
+    53.1 What You Should See
+    53.2 How To Break It
+    53.3 Extra Credit
+   54 Next Steps
+   III  Reviewing And Critiquing Code
+   55 Deconstructing "K&R C"
+    55.1 An Overall Critique Of Correctness
+     55.1.1 A First Demonstration Defect
+     55.1.2 Why copy() Fails
+     55.1.3 But, That's Not A C String
+     55.1.4 Just Don't Do That
+     55.1.5 Stylistic Issues
+    55.2 Chapter 1 Examples
+
+   [next] [prev] [prev-tail] [front] [up]
+     __________________________________________________________________
+
+   Please enable JavaScript to view the comments powered by Disqus.
+
+Take An Online Video Course
+
+   You can sign up for a video course at:
+
+   http://www.udemy.com/learn-c-the-hard-way/
+
+   This course is currently being built at the same time that the book is
+   being built, but if you sign up now then you get early access to both
+   the videos and PDF of the book.
+
+Related Books
+
+   You might want to check out these other books in the series:
+    1. Learn Ruby The Hard Way
+    2. Learn Regex The Hard Way
+    3. Learn SQL The Hard Way
+    4. Learn C The Hard Way
+    5. Learn Python The Hard Way
+
+   I'll be referencing other books shortly.
+
+   Copyright 2011 Zed A. Shaw. All Rights Reserved.

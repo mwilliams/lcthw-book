@@ -1,0 +1,168 @@
+
+   Learn C The Hard Way A Learn Code The Hard Way Book
+     * Book
+     * Comments
+     * Video Courses
+     * Related Books
+
+   [next] [prev] [prev-tail] [tail] [up]
+
+Chapter 8
+Exercise 7: More Variables, Some Math
+
+   Let's get familiar with more things you can do with variables by
+   declaring various ints, floats, chars, and doubles. We'll then use
+   these in various math expressions so you get introduced to C's basic
+   math.
+     __________________________________________________________________
+
+   Source 23: ex7.c
+   1  #include <stdio.h>
+   2
+   3  int main(int argc, char *argv[])
+   4  {
+   5      int bugs = 100;
+   6      double bug_rate = 1.2;
+   7
+   8      printf("You have %d bugs at the imaginary rate of %f.\n",
+   9              bugs, bug_rate);
+   10
+   11      long universe_of_defects = 1L * 1024L * 1024L * 1024L;
+   12      printf("The entire universe has %ld bugs.\n",
+   13              universe_of_defects);
+   14
+   15      double expected_bugs = bugs * bug_rate;
+   16      printf("You are expected to have %f bugs.\n",
+   17              expected_bugs);
+   18
+   19      double part_of_universe = expected_bugs / universe_of_defects;
+   20      printf("That is only a %e portion of the universe.\n",
+   21              part_of_universe);
+   22
+   23      // this makes no sense, just a demo of something weird
+   24      char nul_byte = '\0';
+   25      int care_percentage = bugs * nul_byte;
+   26      printf("Which means you should care %d%%.\n",
+   27              care_percentage);
+   28
+   29      return 0;
+   30  }
+     __________________________________________________________________
+
+   Here's what's going on in this little bit of nonsense:
+
+   ex7.c:1-4
+          The usual start of a C program.
+
+   ex7.c:5-6
+          Declare an int and double for some fake bug data.
+
+   ex7.c:8-9
+          Print out those two, so nothing new here.
+
+   ex7.c:11
+          Declare a huge number using a new type long for storing big
+          numbers.
+
+   ex7.c:12-13
+          Print out that number using %ld which adds a modifier to the
+          usual %d. Adding 'l' (the letter ell) means "print this as a
+          long decimal".
+
+   ex7.c:15-17
+          Just more math and printing.
+
+   ex7.c:19-21
+          Craft up a depiction of your bug rate compared to the bugs in
+          the universe, which is a completely inaccurate calculation. It's
+          so small though that we have to use %e to print it in scientific
+          notation.
+
+   ex7.c:24
+          Make a character, with a special syntax '\0' which creates a
+          'nul byte' character. This is effectively the number 0.
+
+   ex7.c:25
+          Multiply bugs by this character, which produces 0 for how much
+          you should care. This demonstrates an ugly hack you find
+          sometimes.
+
+   ex7.c:26-27
+          Print that out, and notice I've got a %% (two percent chars) so
+          I can print a '%' (percent) character.
+
+   ex7.c:28-30
+          The end of the main function.
+
+   This bit of source is entirely just an exercise, and demonstrates how
+   some math works. At the end, it also demonstrates something you see in
+   C, but not in many other languages. To C, a "character" is just an
+   integer. It's a really small integer, but that's all it is. This means
+   you can do math on them, and a lot of software does just that, for good
+   or bad.
+
+   This last bit is your first glance at how C gives you direct access to
+   the machine. We'll be exploring that more in later exercises.
+
+8.1 What You Should See
+
+   As usual, here's what you should see for the output:
+     __________________________________________________________________
+
+   Source 24: ex7 output
+   1$ make ex7
+   2cc -Wall -g    ex7.c   -o ex7
+   3$ ./ex7
+   4You have 100 bugs at the imaginary rate of 1.200000.
+   5The entire universe has 1073741824 bugs.
+   6You are expected to have 120.000000 bugs.
+   7That is only a 1.117587e-07 portion of the universe.
+   8Which means you should care 0%.
+   9$
+     __________________________________________________________________
+
+8.2 How To Break It
+
+   Again, go through this and try breaking the printf by passing in the
+   wrong arguments. See what happens when you try to print out that
+   nul_byte variable too with %s vs. %c. When you break it, run it under
+   Valgrind to see what it says about your breaking attempts.
+
+8.3 Extra Credit
+
+    1. Make the number you assign to universe_of_defects various sizes
+       until you get a warning from the compiler.
+    2. What do these really huge numbers actually print out?
+    3. Change long to unsigned long and try to find the number that makes
+       that one too big.
+    4. Go search online to find out what unsigned does.
+    5. Try to explain to yourself (before I do in the next exercise) why
+       you can multiply a char and an int.
+
+   [next] [prev] [prev-tail] [front] [up]
+     __________________________________________________________________
+
+   Please enable JavaScript to view the comments powered by Disqus.
+
+Take An Online Video Course
+
+   You can sign up for a video course at:
+
+   http://www.udemy.com/learn-c-the-hard-way/
+
+   This course is currently being built at the same time that the book is
+   being built, but if you sign up now then you get early access to both
+   the videos and PDF of the book.
+
+Related Books
+
+   You might want to check out these other books in the series:
+    1. Learn Ruby The Hard Way
+    2. Learn Regex The Hard Way
+    3. Learn SQL The Hard Way
+    4. Learn C The Hard Way
+    5. Learn Python The Hard Way
+
+   I'll be referencing other books shortly.
+
+   Copyright 2011 Zed A. Shaw. All Rights Reserved.

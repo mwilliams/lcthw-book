@@ -1,0 +1,212 @@
+
+   Learn C The Hard Way A Learn Code The Hard Way Book
+     * Book
+     * Comments
+     * Video Courses
+     * Related Books
+
+   [next] [prev] [prev-tail] [tail] [up]
+
+Chapter 14
+Exercise 13: Switch Statement
+
+   In other languages like Ruby you have a switch-statement that can take
+   any expression. Some languages like Python just don't have a
+   switch-statement since an if-statement with boolean expressions is
+   about the same thing. For these languages, switch-statements are more
+   alternatives to if-statements and work the same internally.
+
+   The switch-statement is actually entirely different and is really a
+   "jump table". Instead of random boolean expressions, you can only put
+   expressions that result in integers, and these integers are used to
+   calculate jumps from the top of the switch to the part that matches
+   that value. Here's some code that we'll break down to understand this
+   concept of "jump tables":
+     __________________________________________________________________
+
+   Source 35: ex13.c
+   1  #include <stdio.h>
+   2
+   3  int main(int argc, char *argv[])
+   4  {
+   5      if(argc != 2) {
+   6          printf("ERROR: You need one argument.\n");
+   7          // this is how you abort a program
+   8          return 1;
+   9      }
+   10
+   11      int i = 0;
+   12      for(i = 0; argv[1][i] != '\0'; i++) {
+   13          char letter = argv[1][i];
+   14
+   15          switch(letter) {
+   16              case 'a':
+   17              case 'A':
+   18                  printf("%d: 'A'\n", i);
+   19                  break;
+   20
+   21              case 'e':
+   22              case 'E':
+   23                  printf("%d: 'E'\n", i);
+   24                  break;
+   25
+   26              case 'i':
+   27              case 'I':
+   28                  printf("%d: 'I'\n", i);
+   29                  break;
+   30
+   31              case 'o':
+   32              case 'O':
+   33                  printf("%d: 'O'\n", i);
+   34                  break;
+   35
+   36              case 'u':
+   37              case 'U':
+   38                  printf("%d: 'U'\n", i);
+   39                  break;
+   40
+   41              case 'y':
+   42              case 'Y':
+   43                  if(i > 2) {
+   44                      // it's only sometimes Y
+   45                      printf("%d: 'Y'\n", i);
+   46                  }
+   47                  break;
+   48
+   49              default:
+   50                  printf("%d: %c is not a vowel\n", i, letter);
+   51          }
+   52      }
+   53
+   54      return 0;
+   55  }
+     __________________________________________________________________
+
+   In this program we take a single command line argument and print out
+   all of the vowels in an incredibly tedious way to demonstrate a
+   switch-statement. Here's how the switch-statement works:
+    1. The compiler marks the place in the program where the
+       switch-statement starts, let's call this location Y.
+    2. It then evaluates the expression in switch(letter) to come up with
+       a number. In this case the number will be the raw ASCII code of the
+       letter in argv[1].
+    3. The compiler has also translated each of the case blocks like
+       case 'A': into a location in the program that is that far away. So
+       the code under case 'A' is at Y+'A' in the program.
+    4. It then does the math to figure out where Y+letter is located in
+       the switch-statement, and if it's too far then it adjusts it to
+       Y+default.
+    5. Once it knows the location, the program "jumps" to that spot in the
+       code, and then continues running. This is why you have break on
+       some of the case blocks, but not others.
+    6. If 'a' is entered, then it jumps to case 'a', there's no break so
+       it "falls through" to the one right under it case 'A' which has
+       code and a break.
+    7. Finally it runs this code, hits the break then exits out of the
+       switch-statement entirely.
+
+   This is a deep dive into how the switch-statement works, but in
+   practice you just have to remember a few simple rules:
+    1. Always include a default: branch so that you catch any missing
+       inputs.
+    2. Don't allow "fall through" unless you really want it, and it's a
+       good idea to add a comment //fallthrough so people know it's on
+       purpose.
+    3. Always write the case and the break before you write the code that
+       goes in it.
+    4. Try to just use if-statements instead if you can.
+
+14.1 What You Should See
+
+   Here's an example of me playing with this, and also demonstrating
+   various ways to pass the argument in:
+     __________________________________________________________________
+
+   Source 36: ex13 output
+   1$ make ex13
+   2cc -Wall -g    ex13.c   -o ex13
+   3$ ./ex13
+   4ERROR: You need one argument.
+   5$
+   6$ ./ex13 Zed
+   70: Z is not a vowel
+   81: 'E'
+   92: d is not a vowel
+   10$
+   11$ ./ex13 Zed Shaw
+   12ERROR: You need one argument.
+   13$
+   14$ ./ex13 "Zed Shaw"
+   150: Z is not a vowel
+   161: 'E'
+   172: d is not a vowel
+   183:   is not a vowel
+   194: S is not a vowel
+   205: h is not a vowel
+   216: 'A'
+   227: w is not a vowel
+   23$
+     __________________________________________________________________
+
+   Remember that there's that if-statement at the top that exits with a
+   return 1; when you don't give enough arguments. Doing a return that's
+   not 0 is how you indicate to the OS that the program had an error. Any
+   value that's greater than 0 can be tested for in scripts and other
+   programs to figure out what happened.
+
+14.2 How To Break It
+
+   It is incredibly easy to break a switch-statement. Here's just a few of
+   the ways you can mess one of these up:
+
+    1. Forget a break and it'll run two or more blocks of code you don't
+       want it to run.
+    2. Forget a default and have it silently ignore values you forgot.
+    3. Accidentally put in variable into the switch that evaluates to
+       something unexpected, like an int that becomes weird values.
+    4. Use uninitialized values in the switch.
+
+   You can also break this program in a few other ways. See if you can
+   bust it yourself.
+
+14.3 Extra Credit
+
+    1. Write another program that uses math on the letter to convert it to
+       lowercase, and then remove all the extraneous uppercase letters in
+       the switch.
+    2. Use the ',' (comma) to initialize letter in the for-loop.
+    3. Make it handle all of the arguments you pass it with yet another
+       for-loop.
+    4. Convert this switch-statement to an if-statement. Which do you like
+       better?
+    5. In the case for 'Y' I have the break outside the if-statement.
+       What's the impact of this and what happens if you move it inside
+       the if-statement. Prove to yourself that you're right.
+
+   [next] [prev] [prev-tail] [front] [up]
+     __________________________________________________________________
+
+   Please enable JavaScript to view the comments powered by Disqus.
+
+Take An Online Video Course
+
+   You can sign up for a video course at:
+
+   http://www.udemy.com/learn-c-the-hard-way/
+
+   This course is currently being built at the same time that the book is
+   being built, but if you sign up now then you get early access to both
+   the videos and PDF of the book.
+
+Related Books
+
+   You might want to check out these other books in the series:
+    1. Learn Ruby The Hard Way
+    2. Learn Regex The Hard Way
+    3. Learn SQL The Hard Way
+    4. Learn C The Hard Way
+    5. Learn Python The Hard Way
+
+   I'll be referencing other books shortly.
+
+   Copyright 2011 Zed A. Shaw. All Rights Reserved.

@@ -1,0 +1,160 @@
+
+   Learn C The Hard Way A Learn Code The Hard Way Book
+     * Book
+     * Comments
+     * Video Courses
+     * Related Books
+
+   [next] [prev] [prev-tail] [tail] [up]
+
+Part II
+Data Structures And Algorithms
+
+   28 Exercise 27: Creative And Defensive Programming
+    28.1 The Creative Programmer Mindset
+    28.2 The Defensive Programmer Mindset
+    28.3 The Eight Defensive Programmer Strategies
+    28.4 Applying The Eight Strategies
+    28.5 Order Is Not Important
+    28.6 Extra Credit
+   29 Exercise 28: Intermediate Makefiles
+    29.1 The Basic Project Structure
+    29.2 Makefile
+    29.3 What You Should See
+    29.4 Extra Credit
+   30 Exercise 29: Libraries And Linking
+    30.1 What You Should See
+    30.2 How To Break It
+    30.3 Extra Credit
+   31 Exercise 30: Automated Testing
+    31.1 Wiring Up The Test Framework
+    31.2 Extra Credit
+   32 Exercise 31: Debugging Code
+    32.1 Debug Printing Vs. GDB Vs. Valgrind
+    32.2 A Debugging Strategy
+    32.3 Using GDB
+    32.4 Process Attaching
+    32.5 GDB Tricks
+    32.6 Extra Credit
+   33 Exercise 32: Double Linked Lists
+    33.1 What Are Data Structures
+    33.2 Making The Library
+    33.3 Double Linked Lists
+    33.4 Tests
+    33.5 What You Should See
+    33.6 How To Improve It
+    33.7 Extra Credit
+   34 Exercise 33: Linked List Algorithms
+    34.1 What You Should See
+    34.2 How To Improve It
+    34.3 Extra Credit
+   35 Exercise 34: Dynamic Array
+    35.1 Advantages And Disadvantages
+    35.2 How To Improve It
+    35.3 Extra Credit
+   36 Exercise 35: Sorting And Searching
+    36.1 Radix Sort And Binary Search
+    36.2 How To Improve It
+    36.3 Extra Credit
+   37 Exercise 36: Safer Strings
+    37.1 Why C Strings Were A Horrible Idea
+    37.2 Using bstrlib
+    37.3 Learning The Library
+   38 Exercise 37: Hashmaps
+    38.1 How To Improve It
+    38.2 Extra Credit
+   39 Exercise 38: Hashmap Algorithms
+    39.1 What You Should See
+    39.2 How To Break It
+    39.3 Extra Credit
+   40 Exercise 39: String Algorithms
+    40.1 What You Should See
+    40.2 Analyzing The Results
+    40.3 Extra Credit
+   41 Exercise 40: Binary Search Trees
+    41.1 How To Improve It
+    41.2 Extra Credit
+   42 Exercise 41: Using Cachegrind And Callgrind For Performance Tuning
+    42.1 Running Callgrind
+    42.2 Callgrind Annotating Source
+    42.3 Analyzing Memory Access With Cachegrind
+    42.4 Judo Tuning
+    42.5 Using KCachegrind
+    42.6 Extra Credit
+   43 Exercise 42: Stacks and Queues
+    43.1 What You Should See
+    43.2 How To Improve It
+    43.3 Extra Credit
+   44 Exercise 43: A Simple Statistics Engine
+    44.1 Rolling Standard Deviation And Mean
+    44.2 Implemention
+    44.3 How To Use It
+    44.4 Extra Credit
+   45 Exercise 44: Ring Buffer
+    45.1 The Unit Test
+    45.2 What You Should See
+    45.3 How To Improve It
+    45.4 Extra Credit
+   46 Exercise 45: A Simple TCP/IP Client
+    46.1 Augment The Makefile
+    46.2 The netclient Code
+    46.3 What You Should See
+    46.4 How To Break It
+    46.5 Extra Credit
+   47 Exercise 46: Ternary Search Tree
+    47.1 Advantages And Disadvantages
+    47.2 How To Improve It
+    47.3 Extra Credit
+   48 Exercise 47: A Fast URL Router
+    48.1 What You Should See
+    48.2 How To Improve It
+    48.3 Extra Credit
+   49 Exercise 48: A Tiny Virtual Machine Part 1
+    49.1 What You Should See
+    49.2 How To Break It
+    49.3 Extra Credit
+   50 Exercise 48: A Tiny Virtual Machine Part 2
+    50.1 What You Should See
+    50.2 How To Break It
+    50.3 Extra Credit
+   51 Exercise 50: A Tiny Virtual Machine Part 3
+    51.1 What You Should See
+    51.2 How To Break It
+    51.3 Extra Credit
+   52 Exercise 51: A Tiny Virtual Machine Part 4
+    52.1 What You Should See
+    52.2 How To Break It
+    52.3 Extra Credit
+   53 Exercise 52: A Tiny Virtual Machine Part 5
+    53.1 What You Should See
+    53.2 How To Break It
+    53.3 Extra Credit
+   54 Next Steps
+
+   [next] [prev] [prev-tail] [front] [up]
+     __________________________________________________________________
+
+   Please enable JavaScript to view the comments powered by Disqus.
+
+Take An Online Video Course
+
+   You can sign up for a video course at:
+
+   http://www.udemy.com/learn-c-the-hard-way/
+
+   This course is currently being built at the same time that the book is
+   being built, but if you sign up now then you get early access to both
+   the videos and PDF of the book.
+
+Related Books
+
+   You might want to check out these other books in the series:
+    1. Learn Ruby The Hard Way
+    2. Learn Regex The Hard Way
+    3. Learn SQL The Hard Way
+    4. Learn C The Hard Way
+    5. Learn Python The Hard Way
+
+   I'll be referencing other books shortly.
+
+   Copyright 2011 Zed A. Shaw. All Rights Reserved.

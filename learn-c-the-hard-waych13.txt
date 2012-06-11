@@ -1,0 +1,133 @@
+
+   Learn C The Hard Way A Learn Code The Hard Way Book
+     * Book
+     * Comments
+     * Video Courses
+     * Related Books
+
+   [next] [prev] [prev-tail] [tail] [up]
+
+Chapter 13
+Exercise 12: If, Else-If, Else
+
+   Something common in every language is the if-statement, and C has one.
+   Here's code that uses an if-statement to make sure you enter only 1 or
+   2 arguments:
+     __________________________________________________________________
+
+   Source 33: ex12.c
+   1  #include <stdio.h>
+   2
+   3  int main(int argc, char *argv[])
+   4  {
+   5      int i = 0;
+   6
+   7      if(argc == 1) {
+   8          printf("You only have one argument. You suck.\n");
+   9      } else if(argc > 1 && argc < 4) {
+   10          printf("Here's your arguments:\n");
+   11
+   12          for(i = 0; i < argc; i++) {
+   13              printf("%s ", argv[i]);
+   14          }
+   15          printf("\n");
+   16      } else {
+   17          printf("You have too many arguments. You suck.\n");
+   18      }
+   19
+   20      return 0;
+   21  }
+     __________________________________________________________________
+
+   The format for the if-statement is this:
+         if(TEST) {
+             CODE;
+         } else if(TEST) {
+             CODE;
+         } else {
+             CODE;
+         }
+
+   This is like most other languages except for some specific C
+   differences:
+    1. As mentioned before, the TEST parts are false if they evaluate to
+       0, and true otherwise.
+    2. You have to put parenthesis around the TEST elements, while some
+       other languages let you skip that.
+    3. You don't need the {} braces to enclose the code, but it is very
+       bad form to not use them. The braces make it clear where one branch
+       of code begins and ends. If you don't include it then obnoxious
+       errors come up.
+
+   Other than that, they work like others do. You don't need to have
+   either else if or else parts.
+
+13.1 What You Should See
+
+   This one is pretty simple to run and try out:
+     __________________________________________________________________
+
+   Source 34: ex12 output
+   1$ make ex12
+   2cc -Wall -g    ex12.c   -o ex12
+   3$ ./ex12
+   4You only have one argument. You suck.
+   5$ ./ex12 one
+   6Here's your arguments:
+   7./ex12 one
+   8$ ./ex12 one two
+   9Here's your arguments:
+   10./ex12 one two
+   11$ ./ex12 one two three
+   12You have too many arguments. You suck.
+   13$
+     __________________________________________________________________
+
+13.2 How To Break It
+
+   This one isn't easy to break because it's so simple, but try messing up
+   the tests in the if-statement.
+
+    1. Remove the else at the end and it won't catch the edge case.
+    2. Change the && to a || so you get an "or" instead of "and" test and
+       see how that works.
+
+13.3 Extra Credit
+
+    1. You were briefly introduced to &&, which does an "and" comparison,
+       so go research online the different "boolean operators".
+    2. Write a few more test cases for this program to see what you can
+       come up with.
+    3. Go back to Exercises 10 and 11, and use if-statements to make the
+       loops exit early. You'll need the break statement to do that. Go
+       read about it.
+    4. Is the first test really saying the right thing? To you the "first
+       argument" isn't the same first argument a user entered. Fix it.
+
+   [next] [prev] [prev-tail] [front] [up]
+     __________________________________________________________________
+
+   Please enable JavaScript to view the comments powered by Disqus.
+
+Take An Online Video Course
+
+   You can sign up for a video course at:
+
+   http://www.udemy.com/learn-c-the-hard-way/
+
+   This course is currently being built at the same time that the book is
+   being built, but if you sign up now then you get early access to both
+   the videos and PDF of the book.
+
+Related Books
+
+   You might want to check out these other books in the series:
+    1. Learn Ruby The Hard Way
+    2. Learn Regex The Hard Way
+    3. Learn SQL The Hard Way
+    4. Learn C The Hard Way
+    5. Learn Python The Hard Way
+
+   I'll be referencing other books shortly.
+
+   Copyright 2011 Zed A. Shaw. All Rights Reserved.

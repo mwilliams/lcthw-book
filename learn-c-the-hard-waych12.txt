@@ -1,0 +1,145 @@
+
+   Learn C The Hard Way A Learn Code The Hard Way Book
+     * Book
+     * Comments
+     * Video Courses
+     * Related Books
+
+   [next] [prev] [prev-tail] [tail] [up]
+
+Chapter 12
+Exercise 11: While-Loop And Boolean Expressions
+
+   You've had your first taste of how C does loops, but the boolean
+   expression i < argc might have not been clear to you. Let me explain
+   something about it before we see how a while-loop works.
+
+   In C, there's not really a "boolean" type, and instead any integer
+   that's 0 is "false" and otherwise it's "true". In the last exercise the
+   expression i < argc actually resulted in 1 or 0, not an explicit True
+   or False like in Python. This is another example of C being closer to
+   how a computer works, because to a computer truth values are just
+   integers.
+
+   Now you'll take and implement the same program from the last exercise
+   but use a while-loop instead. This will let you compare the two so you
+   can see how one is related to another.
+     __________________________________________________________________
+
+   Source 31: ex11.c
+   1  #include <stdio.h>
+   2
+   3  int main(int argc, char *argv[])
+   4  {
+   5      // go through each string in argv
+   6
+   7      int i = 0;
+   8      while(i < argc) {
+   9          printf("arg %d: %s\n", i, argv[i]);
+   10          i++;
+   11      }
+   12
+   13      // let's make our own array of strings
+   14      char *states[] = {
+   15          "California", "Oregon",
+   16          "Washington", "Texas"
+   17      };
+   18
+   19      int num_states = 4;
+   20      i = 0;  // watch for this
+   21      while(i < num_states) {
+   22          printf("state %d: %s\n", i, states[i]);
+   23          i++;
+   24      }
+   25
+   26      return 0;
+   27  }
+     __________________________________________________________________
+
+   You can see from this that a while-loop is simpler:
+         while(TEST) {
+             CODE;
+         }
+
+   It simply runs the CODE as long as TEST is true (1). This means that to
+   replicate how the for-loop works we need to do our own initializing and
+   incrementing of i.
+
+12.1 What You Should See
+
+   The output is basically the same, so I just did it a little different
+   so you can see another way it runs.
+     __________________________________________________________________
+
+   Source 32: ex11 output
+   1$ make ex11
+   2cc -Wall -g    ex11.c   -o ex11
+   3$ ./ex11
+   4arg 0: ./ex11
+   5state 0: California
+   6state 1: Oregon
+   7state 2: Washington
+   8state 3: Texas
+   9$
+   10$ ./ex11 test it
+   11arg 0: ./ex11
+   12arg 1: test
+   13arg 2: it
+   14state 0: California
+   15state 1: Oregon
+   16state 2: Washington
+   17state 3: Texas
+   18$
+     __________________________________________________________________
+
+12.2 How To Break It
+
+   In your own code you should favor for-loop constructs over while-loop
+   because a for-loop is harder to break. Here's a few common ways:
+
+    1. Forget to initialize the first int i; so have it loop wrong.
+    2. Forget to initialize the second loop's i so that it retains the
+       value from the end of the first loop. Now your second loop might or
+       might not run.
+    3. Forget to do a i++ increment at the end of the loop and you get a
+       "forever loop", one of the dreaded problems of the first decade or
+       two of programming.
+
+12.3 Extra Credit
+
+    1. Make these loops count backward by using i-- to start at argc and
+       count down to 0. You may have to do some math to make the array
+       indexes work right.
+    2. Use a while loop to copy the values from argv into states.
+    3. Make this copy loop never fail such that if there's too many argv
+       elements it won't put them all into states.
+    4. Research if you've really copied these strings. The answer may
+       surprise and confuse you though.
+
+   [next] [prev] [prev-tail] [front] [up]
+     __________________________________________________________________
+
+   Please enable JavaScript to view the comments powered by Disqus.
+
+Take An Online Video Course
+
+   You can sign up for a video course at:
+
+   http://www.udemy.com/learn-c-the-hard-way/
+
+   This course is currently being built at the same time that the book is
+   being built, but if you sign up now then you get early access to both
+   the videos and PDF of the book.
+
+Related Books
+
+   You might want to check out these other books in the series:
+    1. Learn Ruby The Hard Way
+    2. Learn Regex The Hard Way
+    3. Learn SQL The Hard Way
+    4. Learn C The Hard Way
+    5. Learn Python The Hard Way
+
+   I'll be referencing other books shortly.
+
+   Copyright 2011 Zed A. Shaw. All Rights Reserved.

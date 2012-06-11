@@ -1,0 +1,436 @@
+
+   Learn C The Hard Way A Learn Code The Hard Way Book
+     * Book
+     * Comments
+     * Video Courses
+     * Related Books
+
+   [next] [prev] [prev-tail] [tail] [up]
+
+Chapter 39
+Exercise 38: Hashmap Algorithms
+
+   There are three hash functions that you'll implement in this exercise:
+
+   FNV-1a
+          Named after the creators Glenn Fowler, Phong Vo, and Landon Curt
+          Noll. This hash produces good numbers and is reasonably fast.
+
+   Adler-32
+          Named after Mark Adler, is a horrible hash algorithm, but it's
+          been around a long time and it's good for studying.
+
+   DJB Hash
+          This hash algorithm is attributed to Dan J. Bernstein (DJB) but
+          it's difficult to find his discussion of the algorithm. It's
+          shown to be fast, but possibly not great numbers.
+
+   You've already seen the Jenkins hash as the default hash for the
+   Hashmap data structure, so this exercise will be looking at these three
+   new ones. The code for them is usually small, and it's not optimized at
+   all. As usual I'm going for understanding and not blinding latest
+   speed.
+
+   The header file is very simple, so I'll start with that:
+     __________________________________________________________________
+
+   Source 119: src/lcthw/hashmap_algos.h
+   1  #ifndef hashmap_algos_h
+   2  #define hashmap_algos_h
+   3
+   4  #include <stdint.h>
+   5
+   6  uint32_t Hashmap_fnv1a_hash(void *data);
+   7
+   8  uint32_t Hashmap_adler32_hash(void *data);
+   9
+   10  uint32_t Hashmap_djb_hash(void *data);
+   11
+   12  #endif
+     __________________________________________________________________
+
+   I'm just declaring the three functions I'll implement in the
+   hashmap_algos.c file:
+     __________________________________________________________________
+
+   Source 120: src/lcthw/hashmap_algos.c
+   1  #include <lcthw/hashmap_algos.h>
+   2  #include <lcthw/bstrlib.h>
+   3
+   4  // settings taken from
+   5  // http://www.isthe.com/chongo/tech/comp/fnv/index.html#FNV-param
+   6  const uint32_t FNV_PRIME = 16777619;
+   7  const uint32_t FNV_OFFSET_BASIS = 2166136261;
+   8
+   9  uint32_t Hashmap_fnv1a_hash(void *data)
+   10  {
+   11      bstring s = (bstring)data;
+   12      uint32_t hash = FNV_OFFSET_BASIS;
+   13      int i = 0;
+   14
+   15      for(i = 0; i < blength(s); i++) {
+   16          hash ^= bchare(s, i, 0);
+   17          hash *= FNV_PRIME;
+   18      }
+   19
+   20      return hash;
+   21  }
+   22
+   23  const int MOD_ADLER = 65521;
+   24
+   25  uint32_t Hashmap_adler32_hash(void *data)
+   26  {
+   27      bstring s = (bstring)data;
+   28      uint32_t a = 1, b = 0;
+   29      int i = 0;
+   30
+   31      for (i = 0; i < blength(s); i++)
+   32      {
+   33          a = (a + bchare(s, i, 0)) % MOD_ADLER;
+   34          b = (b + a) % MOD_ADLER;
+   35      }
+   36
+   37      return (b << 16) | a;
+   38  }
+   39
+   40  uint32_t Hashmap_djb_hash(void *data)
+   41  {
+   42      bstring s = (bstring)data;
+   43      uint32_t hash = 5381;
+   44      int i = 0;
+   45
+   46      for(i = 0; i < blength(s); i++) {
+   47          hash = ((hash << 5) + hash) + bchare(s, i, 0); /* hash * 33
+    + c */
+   48      }
+   49
+   50      return hash;
+   51  }
+     __________________________________________________________________
+
+   This file then has the three hash algorithms. You should notice that
+   I'm defaulting to just using a bstring for the key, and I'm using the
+   bchare function to get a character from the bstring, but return 0 if
+   that character is outside the string's length.
+
+   Each of these algorithms are found online so go search for them and
+   read about them. Again I used Wikipedia primarily and then followed it
+   to other sources.
+
+   I then have a unit test that tests out each algorithm, but also tests
+   that it will distribute well across a number of buckets:
+     __________________________________________________________________
+
+   Source 121: tests/hashmap_algos_tests.c
+   1  #include <lcthw/bstrlib.h>
+   2  #include <lcthw/hashmap.h>
+   3  #include <lcthw/hashmap_algos.h>
+   4  #include <lcthw/darray.h>
+   5  #include "minunit.h"
+   6
+   7  struct tagbstring test1 = bsStatic("test data 1");
+   8  struct tagbstring test2 = bsStatic("test data 2");
+   9  struct tagbstring test3 = bsStatic("xest data 3");
+   10
+   11  char *test_fnv1a()
+   12  {
+   13      uint32_t hash = Hashmap_fnv1a_hash(&test1);
+   14      mu_assert(hash != 0, "Bad hash.");
+   15
+   16      hash = Hashmap_fnv1a_hash(&test2);
+   17      mu_assert(hash != 0, "Bad hash.");
+   18
+   19      hash = Hashmap_fnv1a_hash(&test3);
+   20      mu_assert(hash != 0, "Bad hash.");
+   21
+   22      return NULL;
+   23  }
+   24
+   25  char *test_adler32()
+   26  {
+   27      uint32_t hash = Hashmap_adler32_hash(&test1);
+   28      mu_assert(hash != 0, "Bad hash.");
+   29
+   30      hash = Hashmap_adler32_hash(&test2);
+   31      mu_assert(hash != 0, "Bad hash.");
+   32
+   33      hash = Hashmap_adler32_hash(&test3);
+   34      mu_assert(hash != 0, "Bad hash.");
+   35
+   36      return NULL;
+   37  }
+   38
+   39  char *test_djb()
+   40  {
+   41      uint32_t hash = Hashmap_djb_hash(&test1);
+   42      mu_assert(hash != 0, "Bad hash.");
+   43
+   44      hash = Hashmap_djb_hash(&test2);
+   45      mu_assert(hash != 0, "Bad hash.");
+   46
+   47      hash = Hashmap_djb_hash(&test3);
+   48      mu_assert(hash != 0, "Bad hash.");
+   49
+   50      return NULL;
+   51  }
+   52
+   53  #define BUCKETS 100
+   54  #define BUFFER_LEN 20
+   55  #define NUM_KEYS BUCKETS * 1000
+   56  enum { ALGO_FNV1A, ALGO_ADLER32, ALGO_DJB};
+   57
+   58  int gen_keys(DArray *keys, int num_keys)
+   59  {
+   60      int i = 0;
+   61      FILE *urand = fopen("/dev/urandom", "r");
+   62      check(urand != NULL, "Failed to open /dev/urandom");
+   63
+   64      struct bStream *stream = bsopen((bNread)fread, urand);
+   65      check(stream != NULL, "Failed to open /dev/urandom");
+   66
+   67      bstring key = bfromcstr("");
+   68      int rc = 0;
+   69
+   70      // FNV1a histogram
+   71      for(i = 0; i < num_keys; i++) {
+   72          rc = bsread(key, stream, BUFFER_LEN);
+   73          check(rc >= 0, "Failed to read from /dev/urandom.");
+   74
+   75          DArray_push(keys, bstrcpy(key));
+   76      }
+   77
+   78      bsclose(stream);
+   79      fclose(urand);
+   80      return 0;
+   81
+   82  error:
+   83      return -1;
+   84  }
+   85
+   86  void destroy_keys(DArray *keys)
+   87  {
+   88      int i = 0;
+   89      for(i = 0; i < NUM_KEYS; i++) {
+   90          bdestroy(DArray_get(keys, i));
+   91      }
+   92
+   93      DArray_destroy(keys);
+   94  }
+   95
+   96  void fill_distribution(int *stats, DArray *keys, Hashmap_hash hash_
+   func)
+   97  {
+   98      int i = 0;
+   99      uint32_t hash = 0;
+   100
+   101      for(i = 0; i < DArray_count(keys); i++) {
+   102          hash = hash_func(DArray_get(keys, i));
+   103          stats[hash % BUCKETS] += 1;
+   104      }
+   105
+   106  }
+   107
+   108  char *test_distribution()
+   109  {
+   110      int i = 0;
+   111      int stats[3][BUCKETS] = {{0}};
+   112      DArray *keys = DArray_create(0, NUM_KEYS);
+   113
+   114      mu_assert(gen_keys(keys, NUM_KEYS) == 0, "Failed to generate r
+   andom keys.");
+   115
+   116      fill_distribution(stats[ALGO_FNV1A], keys, Hashmap_fnv1a_hash)
+   ;
+   117      fill_distribution(stats[ALGO_ADLER32], keys, Hashmap_adler32_h
+   ash);
+   118      fill_distribution(stats[ALGO_DJB], keys, Hashmap_djb_hash);
+   119
+   120      fprintf(stderr, "FNV\tA32\tDJB\n");
+   121
+   122      for(i = 0; i < BUCKETS; i++) {
+   123          fprintf(stderr, "%d\t%d\t%d\n",
+   124                  stats[ALGO_FNV1A][i],
+   125                  stats[ALGO_ADLER32][i],
+   126                  stats[ALGO_DJB][i]);
+   127      }
+   128
+   129      destroy_keys(keys);
+   130
+   131      return NULL;
+   132  }
+   133
+   134  char *all_tests()
+   135  {
+   136      mu_suite_start();
+   137
+   138      mu_run_test(test_fnv1a);
+   139      mu_run_test(test_adler32);
+   140      mu_run_test(test_djb);
+   141      mu_run_test(test_distribution);
+   142
+   143      return NULL;
+   144  }
+   145
+   146  RUN_TESTS(all_tests);
+     __________________________________________________________________
+
+   I have the number of BUCKETS in this code set fairly high, since I have
+   a fast enough computer, but if it runs slow just lower them, and also
+   lower NUM_KEYS. What this test lets me do is run the test and then look
+   at the distribution of keys for each hash function using a bit of
+   analysis with a language called R.
+
+   How I do this is I craft a big list of keys using the gen_keys
+   function. These keys are taken out of the /dev/urandom device they are
+   random byte keys. I then use these keys to have the fill_distribution
+   function fill up the stats array with where those keys would hash in a
+   theoretial set of buckets. All this function does is go through all the
+   keys, do the hash, then do what the Hashmap would do to find its
+   bucket.
+
+   Finally I'm simply printing out a three column table of the final count
+   for each bucket, showing how many keys managed to get into each bucket
+   randomly. I can then look at these numbers to see if the hash functions
+   are distributing keys mostly evenly.
+
+39.1 What You Should See
+
+   Teaching you R is outside the scope of this book, but if you want to
+   get it and try this then it can be found at r-project.org.
+
+   Here is an abbreviated shell session showing me run the
+   tests/hashmap_algos_test to get the table produced by test_distribution
+   (not shown here), and then use R to see what the summary statistics
+   are:
+     __________________________________________________________________
+
+   Source 122: R Analysis of hashmap_algos_tests.c
+   1  $ tests/hashmap_algos_tests
+   2  # copy-paste the table it prints out
+   3  $ vim hash.txt
+   4  $ R
+   5  > hash <- read.table("hash.txt", header=T)
+   6  > summary(hash)
+   7        FNV            A32              DJB
+   8   Min.   : 945   Min.   : 908.0   Min.   : 927
+   9   1st Qu.: 980   1st Qu.: 980.8   1st Qu.: 979
+   10   Median : 998   Median :1000.0   Median : 998
+   11   Mean   :1000   Mean   :1000.0   Mean   :1000
+   12   3rd Qu.:1016   3rd Qu.:1019.2   3rd Qu.:1021
+   13   Max.   :1072   Max.   :1075.0   Max.   :1082
+   14  >
+     __________________________________________________________________
+
+   First I just run the test, which on your screen will print the table.
+   Then I just copy-paste it out of my terminal and use vim hash.txt to
+   save the data. If you look at the data it has the header FNV A32 DJB
+   for each of the three algorithms.
+
+   Second I run R and load the data using the read.table command. This is
+   a smart function that works with this kind of tab-delimited data and I
+   only have to tell it header=T so it knows the data has a header.
+
+   Finally, I have the data loaded and I can use summary to print out its
+   summary statistics for each column. Here you can see that each function
+   actually does alright with this random data. I'll explain what each of
+   these rows means:
+
+   Min.
+          This is the minimum value found for the data in that column. FNV
+          seems to win this on this run since it has the largest number,
+          meaning it has a tighter range at the low end.
+
+   1st Qu.
+          The point where the first quarter of the data ends.
+
+   Median
+          This is the number that is in the middle if you sorted them.
+          Median is most useful when compared to mean.
+
+   Mean
+          Mean is the "average" most people think of, and is the sum/count
+          of the data. If you look, all of them are 1000, which is great.
+          If you compare this to the median you see that all three have
+          really close medians to the mean. What this means is the data
+          isn't "skewed" in one direction, so you can trust the mean.
+
+   3rd Qu.
+          The point where the last quarter of the data starts and
+          represents the tail end of the numbers.
+
+   Max.
+          This is the maximum number of the data, and presents the upper
+          bound on all of them.
+
+   Looking at this data, you see that all of these hashes seem to do good
+   on random keys, and that the means match the NUM_KEYS setting I made.
+   What I'm looking for is that if I make 1000 keys per buckets (BUCKETS *
+   1000), then on average each bucket should have 1000 keys in it. If the
+   hash function isn't working then you'll see these summary statistics
+   show a Mean that's not 1000, and really high ranges at the 1st quarter
+   and 3rd quarter. A good hash function should have a dead on 1000 mean,
+   and as tight as possible range.
+
+   You should also know that you will get mostly different numbers from
+   mine, and even between different runs of this unit test.
+
+39.2 How To Break It
+
+   I'm finally going to have you do some breaking in this exercise. I want
+   you to write the worst hash function you can, and then use the data to
+   prove that it's really bad. You can use R to do the stats, just like I
+   did, but maybe you have another tool you can use to give you the same
+   summary statistics.
+
+   The goal is to make a hash function that seems normal to an untrained
+   eye, but when actually run has a bad mean and is all over the place.
+   That means you can't just have it return 1, but have to give a stream
+   of numbers that seem alright, but really are all over the place and
+   loading up some buckets too much.
+
+   Extra points if you can make a minimal change to one of the four hash
+   algorithms I gave you to do this.
+
+   The purpose of this exercise is to imagine that some "friendly" coder
+   comes to you and offers to improve your hash function, but actually
+   just makes a nice little backdoor that screws up your Hashmap.
+
+   As the Royal Society says, "Nullius in verba."
+
+39.3 Extra Credit
+
+    1. Take the default_hash out of the hashmap.c, make it one of the
+       algorithms in hashmap_algos.c and then make all the tests work
+       again.
+    2. Add the default_hash to the hashmap_algos_tests.c test and compare
+       its statistics to the other hash functions.
+    3. Find a few more hash functions and add them too. You can never have
+       too many hash functions!
+
+   [next] [prev] [prev-tail] [front] [up]
+     __________________________________________________________________
+
+   Please enable JavaScript to view the comments powered by Disqus.
+
+Take An Online Video Course
+
+   You can sign up for a video course at:
+
+   http://www.udemy.com/learn-c-the-hard-way/
+
+   This course is currently being built at the same time that the book is
+   being built, but if you sign up now then you get early access to both
+   the videos and PDF of the book.
+
+Related Books
+
+   You might want to check out these other books in the series:
+    1. Learn Ruby The Hard Way
+    2. Learn Regex The Hard Way
+    3. Learn SQL The Hard Way
+    4. Learn C The Hard Way
+    5. Learn Python The Hard Way
+
+   I'll be referencing other books shortly.
+
+   Copyright 2011 Zed A. Shaw. All Rights Reserved.

@@ -1,0 +1,327 @@
+
+   Learn C The Hard Way A Learn Code The Hard Way Book
+     * Book
+     * Comments
+     * Video Courses
+     * Related Books
+
+   [next] [prev] [prev-tail] [tail] [up]
+
+Chapter 30
+Exercise 29: Libraries And Linking
+
+   A central part of any C program is the ability to link it to libraries
+   that your operating system provides. Linking is how you get additional
+   features for your program that someone else created and packaged on the
+   system. You've been using some standard libraries that are
+   automatically included, but I'm going to explain the different types of
+   libraries and what they do.
+
+   First off, libraries are poorly designed in every programming language.
+   I have no idea why, but it seems language designers think of linking as
+   something they just slap on later. They are usually confusing, hard to
+   deal with, can't do versioning right, and end up being linked
+   differently everywhere.
+
+   C is no different, but the way linking and libraries are done in C is
+   an artifact of how the Unix operating system and executable formats
+   were designed years ago. Learning how C links things helps you
+   understand how your OS works and how it runs your programs.
+
+   To start off there are two basic types of libraries:
+
+   static
+          You've made one of these when you used ar and ranlib to create
+          the libYOUR_LIBRARY.a in the last exercise. This kind of library
+          is nothing more than a container for a set of .o object files
+          and their functions, and you can treat it like one big .o file
+          when building your programs.
+
+   dynamic
+          These typically end in .so, .dll or about 1 million other
+          endings on OSX depending on the version and who happened to be
+          working that day. Seriously though, OSX adds .dylib, .bundle,
+          and .framework with not much distinction between the three.
+          These files are built and then placed in a common location. When
+          you run your program the OS dynamically loads these files and
+          links them to your program on the fly.
+
+   I tend to like static libraries for small to medium sized projects
+   because they are easier to deal with and work on more operating
+   systems. I also like to put all of the code I can into a static library
+   so that I can then link it to unit tests and to the file programs as
+   needed.
+
+   Dynamic libraries are good for larger systems, when space is tight, or
+   if you have a large number of programs that use common functionality.
+   In this case you don't want to statically link all of the code for the
+   common features to every program, so you put it in a dynamic library so
+   that it is loaded only once for all of them.
+
+   In the previous exercise I laid out how to make a static library (a .a
+   file), and that's what I'll use in the rest of the book. In this
+   exercise I'm going to show you how to make a simple .so library, and
+   how to dynamically load it with the Unix dlopen system. I'll have you
+   do this manually so that you understand everything that's actually
+   happening, then the Extra Credit will be to use the c-skeleton skeleton
+   to create it.
+
+30.0.1 Dynamically Loading A Shared Library
+
+   To do this I will create two source files. One will be used to make a
+   libex29.so library, the other will be a program called ex29 that can
+   load this library and run functions from it.
+     __________________________________________________________________
+
+   Source 83: libex29.c
+   1  #include <stdio.h>
+   2  #include <ctype.h>
+   3  #include "dbg.h"
+   4
+   5
+   6  int print_a_message(const char *msg)
+   7  {
+   8      printf("A STRING: %s\n", msg);
+   9
+   10      return 0;
+   11  }
+   12
+   13
+   14  int uppercase(const char *msg)
+   15  {
+   16      int i = 0;
+   17
+   18      // BUG: \0 termination problems
+   19      for(i = 0; msg[i] != '\0'; i++) {
+   20          printf("%c", toupper(msg[i]));
+   21      }
+   22
+   23      printf("\n");
+   24
+   25      return 0;
+   26  }
+   27
+   28  int lowercase(const char *msg)
+   29  {
+   30      int i = 0;
+   31
+   32      // BUG: \0 termination problems
+   33      for(i = 0; msg[i] != '\0'; i++) {
+   34          printf("%c", tolower(msg[i]));
+   35      }
+   36
+   37      printf("\n");
+   38
+   39      return 0;
+   40  }
+   41
+   42  int fail_on_purpose(const char *msg)
+   43  {
+   44      return 1;
+   45  }
+     __________________________________________________________________
+
+   There's nothing fancy in there, although there's some bugs I'm leaving
+   in on purpose to see if you've been paying attention. You'll fix those
+   later.
+
+   What we want to do is use the functions dlopen, dlsym and dlclose to
+   work with the above functions.
+     __________________________________________________________________
+
+   Source 84: ex29.c
+   1  #include <stdio.h>
+   2  #include "dbg.h"
+   3  #include <dlfcn.h>
+   4
+   5  typedef int (*lib_function)(const char *data);
+   6
+   7
+   8  int main(int argc, char *argv[])
+   9  {
+   10      int rc = 0;
+   11      check(argc == 4, "USAGE: ex29 libex29.so function data");
+   12
+   13      char *lib_file = argv[1];
+   14      char *func_to_run = argv[2];
+   15      char *data = argv[3];
+   16
+   17      void *lib = dlopen(lib_file, RTLD_NOW);
+   18      check(lib != NULL, "Failed to open the library %s: %s", lib_fil
+   e, dlerror());
+   19
+   20      lib_function func = dlsym(lib, func_to_run);
+   21      check(func != NULL, "Did not find %s function in the library %s
+   : %s", func_to_run, lib_file, dlerror());
+   22
+   23      rc = func(data);
+   24      check(rc == 0, "Function %s return %d for data: %s", func_to_ru
+   n, rc, data);
+   25
+   26      rc = dlclose(lib);
+   27      check(rc == 0, "Failed to close %s", lib_file);
+   28
+   29      return 0;
+   30
+   31  error:
+   32      return 1;
+   33  }
+     __________________________________________________________________
+
+   I'll now break this down so you can see what's going on in this small
+   bit of useful code:
+
+   ex29.c:5
+          I'll use this function pointer definition later to call
+          functions in the library. This is nothing new, but make sure you
+          understand what it's doing.
+
+   ex29.c:17
+          After the usual setup for a small program, I use the dlopen
+          function to load up the library indicated by lib_file. This
+          function returns a handle that we use later and works a lot like
+          opening a file.
+
+   ex29.c:18
+          If there's an error, I do the usual check and exit, but notice
+          at then end that I'm using dlerror to find out what the library
+          related error was.
+
+   ex29.c:20
+          I use dlsym to get a function out of the lib by it's string name
+          in func_to_run. This is the powerful part, since I'm dynamically
+          getting a pointer to a function based on a string I got from the
+          command line argv.
+
+   ex29.c:23
+          I then call the func function that was returned, and check its
+          return value.
+
+   ex29.c:26
+          Finally, I close the library up just like I would a file.
+          Usually you keep these open the whole time the program is
+          running, so closing at the end isn't as useful, but I'm
+          demonstrating it here.
+
+30.1 What You Should See
+
+   Now that you know what this file does, here's a shell session of me
+   building the libex29.so, ex29 and then working with it. Follow along so
+   you learn how these things are built manually.
+     __________________________________________________________________
+
+   Source 85: Building And Using libex29.so
+   1  # compile the lib file and make the .so
+   2  $ cc -c libex29.c -o libex29.o
+   3  $ cc -shared -o libex29.so libex29.o
+   4
+   5  # make the loader program
+   6  $ cc -Wall -g -DNDEBUG ex29.c -ldl -o ex29
+   7
+   8  # try it out with some things that work
+   9  $ ex29 ./libex29.so print_a_message "hello there"
+   10  -bash: ex29: command not found
+   11  $ ./ex29 ./libex29.so print_a_message "hello there"
+   12  A STRING: hello there
+   13  $ ./ex29 ./libex29.so uppercase "hello there"
+   14  HELLO THERE
+   15  $ ./ex29 ./libex29.so lowercase "HELLO tHeRe"
+   16  hello there
+   17  $ ./ex29 ./libex29.so fail_on_purpose "i fail"
+   18  [ERROR] (ex29.c:23: errno: None) Function fail_on_purpose return 1
+   for data: i fail
+   19
+   20  # try to give it bad args
+   21  $ ./ex29 ./libex29.so fail_on_purpose
+   22  [ERROR] (ex29.c:11: errno: None) USAGE: ex29 libex29.so function da
+   ta
+   23
+   24  # try calling a function that is not there
+   25  $ ./ex29 ./libex29.so adfasfasdf asdfadff
+   26  [ERROR] (ex29.c:20: errno: None) Did not find adfasfasdf
+   27    function in the library libex29.so: dlsym(0x1076009b0, adfasfasdf
+   ): symbol not found
+   28
+   29  # try loading a .so that is not there
+   30  $ ./ex29 ./libex.so adfasfasdf asdfadfas
+   31  [ERROR] (ex29.c:17: errno: No such file or directory) Failed to ope
+   n
+   32      the library libex.so: dlopen(libex.so, 2): image not found
+   33  $
+     __________________________________________________________________
+
+   One thing that you may run into is that every OS, every version of
+   every OS, and every compiler on every version of every OS, seems to
+   want to change the way you build a shared library every other month
+   that some new programmer thinks it's wrong. If the line I use to make
+   the libex29.so file is wrong, then let me know and I'll add some
+   comments for other platforms.
+     __________________________________________________________________
+
+   Note 11: Irritating .so Ordering
+
+   Sometimes you'll do what you think is normal and run this command
+   cc -Wall -g -DNDEBUG -ldl ex29.c -o ex29 thinking everthing will work,
+   but nope. You see, on some platforms the order of where libraries goes
+   makes them work or not, and for no real reason. On Debian or Ubuntu you
+   have to do cc -Wall -g -DNDEBUG ex29.c -ldl -o ex29 for no reason at
+   all. It's just the way it is, so since this works on OSX I'm doing it
+   here, but in the future, if you link against a dynamic library and it
+   can't find a function, try shuffling things around.
+
+   The irritation here is there is an actual platform difference on
+   nothing more than order of command line arguments. On no rational
+   planet should putting an -ldl at one position be different from
+   another. It's an option, and having to know these things is incredibly
+   annoying.
+     __________________________________________________________________
+
+30.2 How To Break It
+
+   Open libex29.so and edit it with an editor that can handle binary
+   files. Change a couple bytes, then close it. Try to see if you can get
+   the dlopen function to load it even though you've corrupted it.
+
+30.3 Extra Credit
+
+    1. Were you paying attention to the bad code I have in the libex29.c
+       functions? See how, even though I use a for-loop they still check
+       for '\0' endings? Fix this so the functions always take a length
+       for the string to work with inside the function.
+    2. Take the c-skeleton skeleton, and create a new project for this
+       exercise. Put the libex29.c file in the src/ directory. Change the
+       Makefile so that it builds this as build/libex29.so.
+    3. Take the ex29.c file and put it in tests/ex29_tests.c so that it
+       runs as a unit test. Make this all work, which means you have to
+       change it so that it loads the build/libex29.so file and runs tests
+       similar to what I did manually above.
+    4. Read the man dlopen documentation and read about all the related
+       functions. Try some of the other options to dlopen beside RTLD_NOW.
+
+   [next] [prev] [prev-tail] [front] [up]
+     __________________________________________________________________
+
+   Please enable JavaScript to view the comments powered by Disqus.
+
+Take An Online Video Course
+
+   You can sign up for a video course at:
+
+   http://www.udemy.com/learn-c-the-hard-way/
+
+   This course is currently being built at the same time that the book is
+   being built, but if you sign up now then you get early access to both
+   the videos and PDF of the book.
+
+Related Books
+
+   You might want to check out these other books in the series:
+    1. Learn Ruby The Hard Way
+    2. Learn Regex The Hard Way
+    3. Learn SQL The Hard Way
+    4. Learn C The Hard Way
+    5. Learn Python The Hard Way
+
+   I'll be referencing other books shortly.
+
+   Copyright 2011 Zed A. Shaw. All Rights Reserved.

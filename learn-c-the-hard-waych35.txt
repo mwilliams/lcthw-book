@@ -1,0 +1,488 @@
+
+   Learn C The Hard Way A Learn Code The Hard Way Book
+     * Book
+     * Comments
+     * Video Courses
+     * Related Books
+
+   [next] [prev] [prev-tail] [tail] [up]
+
+Chapter 35
+Exercise 34: Dynamic Array
+
+   This is an array that grows on its own and has most of the same
+   features as a linked list. It will usually take up less space, run
+   faster, and has other beneficial properties. This exercise will cover a
+   few of the disadvantages like very slow removal from the front, with a
+   solution (just do it at the end).
+
+   A dynamic array is simply an array of void ** pointers that is
+   pre-allocated in one shot and that point at the data. In the linked
+   list you had a full struct that stored the void *value pointer, but in
+   a dynamic array there's just a single array with all of them. This
+   means you don't need any other pointers for next and previous records
+   since you can just index into it directly.
+
+   To start, I'll give you the header file you should type up for the
+   implementation:
+     __________________________________________________________________
+
+   Source 102: src/lcthw/darray.h
+   1  #ifndef _DArray_h
+   2  #define _DArray_h
+   3  #include <stdlib.h>
+   4  #include <assert.h>
+   5  #include <lcthw/dbg.h>
+   6
+   7  typedef struct DArray {
+   8      int end;
+   9      int max;
+   10      size_t element_size;
+   11      size_t expand_rate;
+   12      void **contents;
+   13  } DArray;
+   14
+   15  DArray *DArray_create(size_t element_size, size_t initial_max);
+   16
+   17  void DArray_destroy(DArray *array);
+   18
+   19  void DArray_clear(DArray *array);
+   20
+   21  int DArray_expand(DArray *array);
+   22
+   23  int DArray_contract(DArray *array);
+   24
+   25  int DArray_push(DArray *array, void *el);
+   26
+   27  void *DArray_pop(DArray *array);
+   28
+   29  void DArray_clear_destroy(DArray *array);
+   30
+   31  #define DArray_last(A) ((A)->contents[(A)->end - 1])
+   32  #define DArray_first(A) ((A)->contents[0])
+   33  #define DArray_end(A) ((A)->end)
+   34  #define DArray_count(A) DArray_end(A)
+   35  #define DArray_max(A) ((A)->max)
+   36
+   37  #define DEFAULT_EXPAND_RATE 300
+   38
+   39
+   40  static inline void DArray_set(DArray *array, int i, void *el)
+   41  {
+   42      check(i < array->max, "darray attempt to set past max");
+   43      array->contents[i] = el;
+   44  error:
+   45      return;
+   46  }
+   47
+   48  static inline void *DArray_get(DArray *array, int i)
+   49  {
+   50      check(i < array->max, "darray attempt to get past max");
+   51      return array->contents[i];
+   52  error:
+   53      return NULL;
+   54  }
+   55
+   56  static inline void *DArray_remove(DArray *array, int i)
+   57  {
+   58      void *el = array->contents[i];
+   59
+   60      array->contents[i] = NULL;
+   61
+   62      return el;
+   63  }
+   64
+   65  static inline void *DArray_new(DArray *array)
+   66  {
+   67      check(array->element_size > 0, "Can't use DArray_new on 0 size
+   darrays.");
+   68
+   69      return calloc(1, array->element_size);
+   70
+   71  error:
+   72      return NULL;
+   73  }
+   74
+   75  #define DArray_free(E) free((E))
+   76
+   77  #endif
+     __________________________________________________________________
+
+   This header file is showing you a new technique where I put static
+   inline functions right in the header. These function definitions will
+   work similar to the #define macros you've been making, but they're
+   cleaner and easier to write. If you need to create a block of code for
+   a macro and you don't need code generation, then use a static inline
+   function.
+
+   Compare this technique to the LIST_FOREACH that generates a proper
+   for-loop for a list. This would be impossible to do with a static
+   inline function because it actually has to generate the inner block of
+   code for the loop. The only way to do that is with a callback function,
+   but that's not as fast and is harder to use.
+
+   I'll then change things up and have you create the unit test for
+   DArray:
+     __________________________________________________________________
+
+   Source 103: tests/darray_tests.c
+   1  #include "minunit.h"
+   2  #include <lcthw/darray.h>
+   3
+   4  static DArray *array = NULL;
+   5  static int *val1 = NULL;
+   6  static int *val2 = NULL;
+   7
+   8  char *test_create()
+   9  {
+   10      array = DArray_create(sizeof(int), 100);
+   11      mu_assert(array != NULL, "DArray_create failed.");
+   12      mu_assert(array->contents != NULL, "contents are wrong in darra
+   y");
+   13      mu_assert(array->end == 0, "end isn't at the right spot");
+   14      mu_assert(array->element_size == sizeof(int), "element size is
+   wrong.");
+   15      mu_assert(array->max == 100, "wrong max length on initial size"
+   );
+   16
+   17      return NULL;
+   18  }
+   19
+   20  char *test_destroy()
+   21  {
+   22      DArray_destroy(array);
+   23
+   24      return NULL;
+   25  }
+   26
+   27  char *test_new()
+   28  {
+   29      val1 = DArray_new(array);
+   30      mu_assert(val1 != NULL, "failed to make a new element");
+   31
+   32      val2 = DArray_new(array);
+   33      mu_assert(val2 != NULL, "failed to make a new element");
+   34
+   35      return NULL;
+   36  }
+   37
+   38  char *test_set()
+   39  {
+   40      DArray_set(array, 0, val1);
+   41      DArray_set(array, 1, val2);
+   42
+   43      return NULL;
+   44  }
+   45
+   46  char *test_get()
+   47  {
+   48      mu_assert(DArray_get(array, 0) == val1, "Wrong first value.");
+   49      mu_assert(DArray_get(array, 1) == val2, "Wrong second value.");
+   50
+   51      return NULL;
+   52  }
+   53
+   54  char *test_remove()
+   55  {
+   56      int *val_check = DArray_remove(array, 0);
+   57      mu_assert(val_check != NULL, "Should not get NULL.");
+   58      mu_assert(*val_check == *val1, "Should get the first value.");
+   59      mu_assert(DArray_get(array, 0) == NULL, "Should be gone.");
+   60      DArray_free(val_check);
+   61
+   62      val_check = DArray_remove(array, 1);
+   63      mu_assert(val_check != NULL, "Should not get NULL.");
+   64      mu_assert(*val_check == *val2, "Should get the first value.");
+   65      mu_assert(DArray_get(array, 1) == NULL, "Should be gone.");
+   66      DArray_free(val_check);
+   67
+   68      return NULL;
+   69  }
+   70
+   71  char *test_expand_contract()
+   72  {
+   73      int old_max = array->max;
+   74      DArray_expand(array);
+   75      mu_assert((unsigned int)array->max == old_max + array->expand_r
+   ate, "Wrong size after expand.");
+   76
+   77      DArray_contract(array);
+   78      mu_assert((unsigned int)array->max == array->expand_rate + 1, "
+   Should stay at the expand_rate at least.");
+   79
+   80      DArray_contract(array);
+   81      mu_assert((unsigned int)array->max == array->expand_rate + 1, "
+   Should stay at the expand_rate at least.");
+   82
+   83      return NULL;
+   84  }
+   85
+   86  char *test_push_pop()
+   87  {
+   88      int i = 0;
+   89      for(i = 0; i < 1000; i++) {
+   90          int *val = DArray_new(array);
+   91          *val = i * 333;
+   92          DArray_push(array, val);
+   93      }
+   94
+   95      mu_assert(array->max == 1201, "Wrong max size.");
+   96
+   97      for(i = 999; i >= 0; i--) {
+   98          int *val = DArray_pop(array);
+   99          mu_assert(val != NULL, "Shouldn't get a NULL.");
+   100          mu_assert(*val == i * 333, "Wrong value.");
+   101          DArray_free(val);
+   102      }
+   103
+   104      return NULL;
+   105  }
+   106
+   107
+   108  char * all_tests() {
+   109      mu_suite_start();
+   110
+   111      mu_run_test(test_create);
+   112      mu_run_test(test_new);
+   113      mu_run_test(test_set);
+   114      mu_run_test(test_get);
+   115      mu_run_test(test_remove);
+   116      mu_run_test(test_expand_contract);
+   117      mu_run_test(test_push_pop);
+   118      mu_run_test(test_destroy);
+   119
+   120      return NULL;
+   121  }
+   122
+   123  RUN_TESTS(all_tests);
+     __________________________________________________________________
+
+   This shows you how all of the operations are used, which then makes
+   implementing the DArray much easier:
+     __________________________________________________________________
+
+   Source 104: src/lcthw/darray.c
+   1  #include <lcthw/darray.h>
+   2  #include <assert.h>
+   3
+   4
+   5  DArray *DArray_create(size_t element_size, size_t initial_max)
+   6  {
+   7      DArray *array = malloc(sizeof(DArray));
+   8      check_mem(array);
+   9      array->max = initial_max;
+   10      check(array->max > 0, "You must set an initial_max > 0.");
+   11
+   12      array->contents = calloc(initial_max, sizeof(void *));
+   13      check_mem(array->contents);
+   14
+   15      array->end = 0;
+   16      array->element_size = element_size;
+   17      array->expand_rate = DEFAULT_EXPAND_RATE;
+   18
+   19      return array;
+   20
+   21  error:
+   22      if(array) free(array);
+   23      return NULL;
+   24  }
+   25
+   26  void DArray_clear(DArray *array)
+   27  {
+   28      int i = 0;
+   29      if(array->element_size > 0) {
+   30          for(i = 0; i < array->max; i++) {
+   31              if(array->contents[i] != NULL) {
+   32                  free(array->contents[i]);
+   33              }
+   34          }
+   35      }
+   36  }
+   37
+   38  static inline int DArray_resize(DArray *array, size_t newsize)
+   39  {
+   40      array->max = newsize;
+   41      check(array->max > 0, "The newsize must be > 0.");
+   42
+   43      void *contents = realloc(array->contents, array->max * sizeof(v
+   oid *));
+   44      // check contents and assume realloc doesn't harm the original
+   on error
+   45
+   46      check_mem(contents);
+   47
+   48      array->contents = contents;
+   49
+   50      return 0;
+   51  error:
+   52      return -1;
+   53  }
+   54
+   55  int DArray_expand(DArray *array)
+   56  {
+   57      size_t old_max = array->max;
+   58      check(DArray_resize(array, array->max + array->expand_rate) ==
+   0,
+   59              "Failed to expand array to new size: %d",
+   60              array->max + (int)array->expand_rate);
+   61
+   62      memset(array->contents + old_max, 0, array->expand_rate + 1);
+   63      return 0;
+   64
+   65  error:
+   66      return -1;
+   67  }
+   68
+   69  int DArray_contract(DArray *array)
+   70  {
+   71      int new_size = array->end < (int)array->expand_rate ? (int)arra
+   y->expand_rate : array->end;
+   72
+   73      return DArray_resize(array, new_size + 1);
+   74  }
+   75
+   76
+   77  void DArray_destroy(DArray *array)
+   78  {
+   79      if(array) {
+   80          if(array->contents) free(array->contents);
+   81          free(array);
+   82      }
+   83  }
+   84
+   85  void DArray_clear_destroy(DArray *array)
+   86  {
+   87      DArray_clear(array);
+   88      DArray_destroy(array);
+   89  }
+   90
+   91  int DArray_push(DArray *array, void *el)
+   92  {
+   93      array->contents[array->end] = el;
+   94      array->end++;
+   95
+   96      if(DArray_end(array) >= DArray_max(array)) {
+   97          return DArray_expand(array);
+   98      } else {
+   99          return 0;
+   100      }
+   101  }
+   102
+   103  void *DArray_pop(DArray *array)
+   104  {
+   105      check(array->end - 1 >= 0, "Attempt to pop from empty array.")
+   ;
+   106
+   107      void *el = DArray_remove(array, array->end - 1);
+   108      array->end--;
+   109
+   110      if(DArray_end(array) > (int)array->expand_rate && DArray_end(a
+   rray) % array->expand_rate) {
+   111          DArray_contract(array);
+   112      }
+   113
+   114      return el;
+   115  error:
+   116      return NULL;
+   117  }
+     __________________________________________________________________
+
+   This shows you another way to tackle complex code. Instead of diving
+   right into the .c implementation, look at the header file, then read
+   the unit test. This gives you an "abstract to concrete" understanding
+   how the pieces work together and making it easier to remember.
+
+35.1 Advantages And Disadvantages
+
+   A DArray is better when you need to optimize these operations:
+
+    1. Iteration. You can just use a basic for-loop and DArray_count with
+       DArray_get and you're done. No special macros needed, and it's
+       faster because you aren't walking pointers.
+    2. Indexing. You can use DArray_get and DArray_set to access any
+       element at random, but with a List you have to go through N
+       elements to get to N+1.
+    3. Destroying. You just free the struct and the contents in two
+       operations. A List requires a series of free calls and also walking
+       every element.
+    4. Cloning. You can also clone it in just two operations (plus
+       whatever it's storing) by copying the struct and contents. A list
+       again requires walking the whole thing and copying every ListNode
+       plus its value.
+    5. Sorting. As you saw, List is horrible if you need to keep the data
+       sorted. A DArray opens up a whole class of great sorting algorithms
+       because now you can access elements randomly.
+    6. Large Data. If you need to keep around a lot of data, then a DArray
+       wins since it's base contents takes up less memory than the same
+       number of ListNode structs.
+
+   The List however wins on these operations:
+
+    1. Insert and remove on the front (what I called shift). A DArray
+       needs special treatment to be able to do this efficiently, and
+       usually has to do some copying.
+    2. Splitting or joining. A List can just copy some pointers and it's
+       done, but with a DArray you have to do copying of the arrays
+       involved.
+    3. Small Data. If you only need to store a few elements, then
+       typically the storage will be less in a List than a generic DArray
+       because the DArray needs to expand the backing store to accommodate
+       future inserts, but a List only makes what it needs.
+
+   With this, I prefer to use a DArray for most of the things you see
+   other people use a List. I reserve using List for any data structure
+   that requires small number of nodes that are inserted and removed from
+   either end. I'll show you two similar data structures called a Stack
+   and Queue where this is important.
+
+35.2 How To Improve It
+
+   As usual, go through each function and operation and add the defensive
+   programming checks, pre-conditions, invariants, and anything else you
+   can find to make the implementation more bulletproof.
+
+35.3 Extra Credit
+
+    1. Improve the unit tests to cover more of the operations and test
+       that using a for-loop to iterate works.
+    2. Research what it would take to implement bubble sort and merge sort
+       for DArray, but don't do it yet. I'll be implementing DArray
+       algorithms next and you'll do this then.
+    3. Write some performance tests for common operations and compare them
+       to the same operations in List. You did some of this, but this
+       time, write a unit test that repeatedly does the operation in
+       question, then in the main runner do the timing.
+    4. Look at how the DArray_expand is implemented using a constant
+       increase (size + 300). Typically dynamic arrays are implemented
+       with a multiplicative increase (size * 2), but I've found this to
+       cost needless memory for no real performance gain. Test my
+       assertion and see when you'd want a multiplied increase instead of
+       a constant increase.
+
+   [next] [prev] [prev-tail] [front] [up]
+     __________________________________________________________________
+
+   Please enable JavaScript to view the comments powered by Disqus.
+
+Take An Online Video Course
+
+   You can sign up for a video course at:
+
+   http://www.udemy.com/learn-c-the-hard-way/
+
+   This course is currently being built at the same time that the book is
+   being built, but if you sign up now then you get early access to both
+   the videos and PDF of the book.
+
+Related Books
+
+   You might want to check out these other books in the series:
+    1. Learn Ruby The Hard Way
+    2. Learn Regex The Hard Way
+    3. Learn SQL The Hard Way
+    4. Learn C The Hard Way
+    5. Learn Python The Hard Way
+
+   I'll be referencing other books shortly.
+
+   Copyright 2011 Zed A. Shaw. All Rights Reserved.

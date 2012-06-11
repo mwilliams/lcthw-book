@@ -1,0 +1,203 @@
+
+   Learn C The Hard Way A Learn Code The Hard Way Book
+     * Book
+     * Comments
+     * Video Courses
+     * Related Books
+
+   [next] [prev] [prev-tail] [tail] [up]
+
+Chapter 9
+Exercise 8: Sizes And Arrays
+
+   In the last exercise you did math, but with a '\0' (nul) character.
+   This may be odd coming from other languages, since they try to treat
+   "strings" and "byte arrays" as different beasts. C however treats
+   strings as just arrays of bytes, and it's only the different printing
+   functions that know there's a difference.
+
+   Before I can really explain the significance of this, I have to
+   introduce a few more concepts: sizeof and arrays. Here's the code we'll
+   be talking about:
+     __________________________________________________________________
+
+   Source 25: ex8.c
+   1  #include <stdio.h>
+   2
+   3  int main(int argc, char *argv[])
+   4  {
+   5      int areas[] = {10, 12, 13, 14, 20};
+   6      char name[] = "Zed";
+   7      char full_name[] = {
+   8          'Z', 'e', 'd',
+   9           ' ', 'A', '.', ' ',
+   10           'S', 'h', 'a', 'w', '\0'
+   11      };
+   12
+   13      // WARNING: On some systems you may have to change the
+   14      // %ld in this code to a %u since it will use unsigned ints
+   15      printf("The size of an int: %ld\n", sizeof(int));
+   16      printf("The size of areas (int[]): %ld\n",
+   17              sizeof(areas));
+   18      printf("The number of ints in areas: %ld\n",
+   19              sizeof(areas) / sizeof(int));
+   20      printf("The first area is %d, the 2nd %d.\n",
+   21              areas[0], areas[1]);
+   22
+   23      printf("The size of a char: %ld\n", sizeof(char));
+   24      printf("The size of name (char[]): %ld\n",
+   25              sizeof(name));
+   26      printf("The number of chars: %ld\n",
+   27              sizeof(name) / sizeof(char));
+   28
+   29      printf("The size of full_name (char[]): %ld\n",
+   30              sizeof(full_name));
+   31      printf("The number of chars: %ld\n",
+   32              sizeof(full_name) / sizeof(char));
+   33
+   34      printf("name=\"%s\" and full_name=\"%s\"\n",
+   35              name, full_name);
+   36
+   37      return 0;
+   38  }
+     __________________________________________________________________
+
+   In this code we create a few arrays with different data types in them.
+   Because arrays of data are so central to how C works, there's a huge
+   number of ways to create them. For now, just use the syntax
+   type name[] = {initializer}; and we'll explore more. What this syntax
+   means is, "I want an array of type that is initialized to ..." When C
+   sees this it does the following:
+    1. Look at the type, in this first case it's int.
+    2. Look at the [] and see that there's no length given.
+    3. Look at the initializer, {10, 12, 13, 14, 20} and figure out that
+       you want those 5 ints in your array.
+    4. Create a piece of memory in the computer, that can hold 5 integers
+       one after another.
+    5. Take the name you want, areas and assign it this location.
+
+   In the case of areas it's creating an array of 5 ints that contain
+   those numbers. When it gets to char name[] = "Zed"; it's doing the same
+   thing, except it's creating an array of 3 chars and assigning that to
+   name. The final array we make is full_name, but we use the annoying
+   syntax of spelling it out, one character at a time. To C, name and
+   full_name are identical methods of creating a char array.
+
+   The rest of the file, we're using a keyword called sizeof to ask C how
+   big things are in bytes. C is all about the size and location of pieces
+   of memory and what you do with them. To help you keep that straight, it
+   gives you sizeof so you can ask how big something is before you work
+   with it.
+
+   This is where stuff gets tricky, so first let's run this and then
+   explain further.
+
+9.1 What You Should See
+     __________________________________________________________________
+
+   Source 26: ex8 output
+   1$ make ex8
+   2cc -Wall -g    ex8.c   -o ex8
+   3$ ./ex8
+   4The size of an int: 4
+   5The size of areas (int[]): 20
+   6The number of ints in areas: 5
+   7The first area is 10, the 2nd 12.
+   8The size of a char: 1
+   9The size of name (char[]): 4
+   10The number of chars: 4
+   11The size of full_name (char[]): 12
+   12The number of chars: 12
+   13name="Zed" and full_name="Zed A. Shaw"
+   14$
+     __________________________________________________________________
+
+   Now you see the output of these different printf calls and start to get
+   a glimpse of what C is doing. Your output could actually be totally
+   different from mine, since your computer might have different size
+   integers. I'll go through my output:
+
+   5
+          My computer thinks an int is 4 bytes in size. Your computer
+          might use a different size if it's a 32-bit vs. 64-bit.
+
+   6
+          The areas array has 5 integers in it, so it makes sense that my
+          computer requires 20 bytes to store it.
+
+   7
+          If we divide the size of areas by size of an int then we get 5
+          elements. Looking at the code, this matches what we put in the
+          initializer.
+
+   8
+          We then did an array access to get areas[0] and areas[1] which
+          means C is "zero indexed" like Python and Ruby.
+
+   9-11
+          We repeat this for the name array, but notice something odd
+          about the size of the array? It says it's 4 bytes long, but we
+          only typed "Zed" for 3 characters. Where's the 4th one coming
+          from?
+
+   12-13
+          We do the same thing with full_name and notice it gets this
+          correct.
+
+   13
+          Finally we just print out the name and full_name to prove that
+          they actually are "strings" according to printf.
+
+   Make sure you can go through and see how these output lines match what
+   was created. We'll be building on this and exploring more about arrays
+   and storage next.
+
+9.2 How To Break It
+
+   Breaking this program is fairly easy. Try some of these:
+
+    1. Get rid of the '\0' at the end of full_name and re-run it. Run it
+       under Valgrind too. Now, move the definition of full_name to the
+       top of main before areas. Try running it under Valgrind a few times
+       and see if you get some new errors. In some cases, you might still
+       get lucky and not catch any errors.
+    2. Change it so that instead of areas[0] you try to print areas[10]
+       and see what Valgrind thinks of that.
+    3. Try other versions of these, doing it to name and full_name too.
+
+9.3 Extra Credit
+
+    1. Try assigning to elements in the areas array with areas[0] = 100;
+       and similar.
+    2. Try assigning to elements of name and full_name.
+    3. Try setting one element of areas to a character from name.
+    4. Go search online for the different sizes used for integers on
+       different CPUs.
+
+   [next] [prev] [prev-tail] [front] [up]
+     __________________________________________________________________
+
+   Please enable JavaScript to view the comments powered by Disqus.
+
+Take An Online Video Course
+
+   You can sign up for a video course at:
+
+   http://www.udemy.com/learn-c-the-hard-way/
+
+   This course is currently being built at the same time that the book is
+   being built, but if you sign up now then you get early access to both
+   the videos and PDF of the book.
+
+Related Books
+
+   You might want to check out these other books in the series:
+    1. Learn Ruby The Hard Way
+    2. Learn Regex The Hard Way
+    3. Learn SQL The Hard Way
+    4. Learn C The Hard Way
+    5. Learn Python The Hard Way
+
+   I'll be referencing other books shortly.
+
+   Copyright 2011 Zed A. Shaw. All Rights Reserved.

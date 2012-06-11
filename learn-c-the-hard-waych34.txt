@@ -1,0 +1,403 @@
+
+   Learn C The Hard Way A Learn Code The Hard Way Book
+     * Book
+     * Comments
+     * Video Courses
+     * Related Books
+
+   [next] [prev] [prev-tail] [tail] [up]
+
+Chapter 34
+Exercise 33: Linked List Algorithms
+
+   I'm going to cover two algorithms you can do on a linked list that
+   involve sorting. I'm going to warn you first that if you need to sort
+   the data, then don't use a linked list. These are horrible for sorting
+   things, and there's much better data structures you can use if that's a
+   requirement. I'm covering these two algorithms because they are
+   slightly difficult to pull off with a linked list and get you thinking
+   about manipulating them efficiently.
+
+   In the interest of writing this book, I'm going to put the algorithms
+   in two different files list_algos.h and list_algos.c then write a test
+   in list_algos_test.c. For now just follow my structure, as it does keep
+   things clean, but if you ever work on other libraries remember this
+   isn't a common structure.
+
+   In this exercise I'm going to also give you an extra challenge and I
+   want you to try not to cheat. I'm going to give you the unit test
+   first, and I want you to type it in. Then I want you to try and
+   implement the two algorithms based on their descriptions in Wikipedia
+   before seeing if your code is like my code.
+
+34.0.1 Bubble And Merge Sort
+
+   You know what's awesome about the Internet? I can just link you to the
+   Bubble Sort page and Merge Sort page on Wikipedia and tell you to read
+   that. Man, that saves me a boat load of typing. Now I can tell you how
+   to actually implement each of these using the pseudo-code they have
+   there. Here's how you can tackle an algorithm like this:
+
+    1. Read the description and look at any visualizations it has.
+    2. Either draw the algorithm on paper using boxes and lines, or
+       actually take a deck of numbered cards (like Poker Cards) and try
+       to do the algorithm manually. This gives you a concrete
+       demonstration of how the algorithm works.
+    3. Create the skeleton functions in your list_algos.c file and make a
+       working list_algos.h file, then setup your test harness.
+    4. Write your first failing test and get everything to compile.
+    5. Go back to the Wikipedia page and copy-paste the pseudo-code (not
+       the C code!) into the guts of the first function you're making.
+    6. Translate this pseudo-code into good C code like I've taught you,
+       using your unit test to make sure it's working.
+    7. Fill out some more tests for edge cases like, empty lists, already
+       sorted lists, etc.
+    8. Repeat for the next algorithm and test.
+
+   I just gave you the secret to figuring out most of the algorithms out
+   there, that is until you get to some of the more insane ones. In this
+   case you're just doing the Bubble and Merge Sorts from Wikipedia, but
+   those will be good starters.
+
+34.0.2 The Unit Test
+
+   Here is the unit test you should try to get passing:
+     __________________________________________________________________
+
+   Source 98: tests/list_algos_tests.c
+   1  #include "minunit.h"
+   2  #include <lcthw/list_algos.h>
+   3  #include <assert.h>
+   4  #include <string.h>
+   5
+   6  char *values[] = {"XXXX", "1234", "abcd", "xjvef", "NDSS"};
+   7  #define NUM_VALUES 5
+   8
+   9  List *create_words()
+   10  {
+   11      int i = 0;
+   12      List *words = List_create();
+   13
+   14      for(i = 0; i < NUM_VALUES; i++) {
+   15          List_push(words, values[i]);
+   16      }
+   17
+   18      return words;
+   19  }
+   20
+   21  int is_sorted(List *words)
+   22  {
+   23      LIST_FOREACH(words, first, next, cur) {
+   24          if(cur->next && strcmp(cur->value, cur->next->value) > 0) {
+   25              debug("%s %s", (char *)cur->value, (char *)cur->next->v
+   alue);
+   26              return 0;
+   27          }
+   28      }
+   29
+   30      return 1;
+   31  }
+   32
+   33  char *test_bubble_sort()
+   34  {
+   35      List *words = create_words();
+   36
+   37      // should work on a list that needs sorting
+   38      int rc = List_bubble_sort(words, (List_compare)strcmp);
+   39      mu_assert(rc == 0, "Bubble sort failed.");
+   40      mu_assert(is_sorted(words), "Words are not sorted after bubble
+   sort.");
+   41
+   42      // should work on an already sorted list
+   43      rc = List_bubble_sort(words, (List_compare)strcmp);
+   44      mu_assert(rc == 0, "Bubble sort of already sorted failed.");
+   45      mu_assert(is_sorted(words), "Words should be sort if already bu
+   bble sorted.");
+   46
+   47      List_destroy(words);
+   48
+   49      // should work on an empty list
+   50      words = List_create(words);
+   51      rc = List_bubble_sort(words, (List_compare)strcmp);
+   52      mu_assert(rc == 0, "Bubble sort failed on empty list.");
+   53      mu_assert(is_sorted(words), "Words should be sorted if empty.")
+   ;
+   54
+   55      List_destroy(words);
+   56
+   57      return NULL;
+   58  }
+   59
+   60  char *test_merge_sort()
+   61  {
+   62      List *words = create_words();
+   63
+   64      // should work on a list that needs sorting
+   65      List *res = List_merge_sort(words, (List_compare)strcmp);
+   66      mu_assert(is_sorted(res), "Words are not sorted after merge sor
+   t.");
+   67
+   68      List *res2 = List_merge_sort(res, (List_compare)strcmp);
+   69      mu_assert(is_sorted(res), "Should still be sorted after merge s
+   ort.");
+   70      List_destroy(res2);
+   71      List_destroy(res);
+   72
+   73      List_destroy(words);
+   74      return NULL;
+   75  }
+   76
+   77
+   78  char *all_tests()
+   79  {
+   80      mu_suite_start();
+   81
+   82      mu_run_test(test_bubble_sort);
+   83      mu_run_test(test_merge_sort);
+   84
+   85      return NULL;
+   86  }
+   87
+   88  RUN_TESTS(all_tests);
+     __________________________________________________________________
+
+   I suggest that you start with the bubble sort and get that working,
+   then move on to the merge sort. What I would do is lay out the function
+   prototypes and skeletons that get all three files compiling, but not
+   passing the test. Then just fill in the implementation until it starts
+   working.
+
+34.0.3 The Implementation
+
+   Are you cheating? In future exercises I will do exercises where I just
+   give you a unit test and tell you to implement it, so it'll be good
+   practice for you to not look at this code until you get your own
+   working. Here's the code for the list_algos.c and list_algos.h:
+     __________________________________________________________________
+
+   Source 99: src/lcthw/list_algos.h
+   1  #ifndef lcthw_List_algos_h
+   2  #define lcthw_List_algos_h
+   3
+   4  #include <lcthw/list.h>
+   5
+   6  typedef int (*List_compare)(const void *a, const void *b);
+   7
+   8  int List_bubble_sort(List *list, List_compare cmp);
+   9
+   10  List *List_merge_sort(List *list, List_compare cmp);
+   11
+   12  #endif
+     __________________________________________________________________
+     __________________________________________________________________
+
+   Source 100: src/lcthw/list_algos.c
+   1  #include <lcthw/list_algos.h>
+   2  #include <lcthw/dbg.h>
+   3
+   4  inline void ListNode_swap(ListNode *a, ListNode *b)
+   5  {
+   6      void *temp = a->value;
+   7      a->value = b->value;
+   8      b->value = temp;
+   9  }
+   10
+   11  int List_bubble_sort(List *list, List_compare cmp)
+   12  {
+   13      int sorted = 1;
+   14
+   15      if(List_count(list) <= 1) {
+   16          return 0;  // already sorted
+   17      }
+   18
+   19      do {
+   20          sorted = 1;
+   21          LIST_FOREACH(list, first, next, cur) {
+   22              if(cur->next) {
+   23                  if(cmp(cur->value, cur->next->value) > 0) {
+   24                      ListNode_swap(cur, cur->next);
+   25                      sorted = 0;
+   26                  }
+   27              }
+   28          }
+   29      } while(!sorted);
+   30
+   31      return 0;
+   32  }
+   33
+   34  inline List *List_merge(List *left, List *right, List_compare cmp)
+   35  {
+   36      List *result = List_create();
+   37      void *val = NULL;
+   38
+   39      while(List_count(left) > 0 || List_count(right) > 0) {
+   40          if(List_count(left) > 0 && List_count(right) > 0) {
+   41              if(cmp(List_first(left), List_first(right)) <= 0) {
+   42                  val = List_unshift(left);
+   43              } else {
+   44                  val = List_unshift(right);
+   45              }
+   46
+   47              List_push(result, val);
+   48          } else if(List_count(left) > 0) {
+   49              val = List_unshift(left);
+   50              List_push(result, val);
+   51          } else if(List_count(right) > 0) {
+   52              val = List_unshift(right);
+   53              List_push(result, val);
+   54          }
+   55      }
+   56
+   57      return result;
+   58  }
+   59
+   60  List *List_merge_sort(List *list, List_compare cmp)
+   61  {
+   62      if(List_count(list) <= 1) {
+   63          return list;
+   64      }
+   65
+   66      List *left = List_create();
+   67      List *right = List_create();
+   68      int middle = List_count(list) / 2;
+   69
+   70      LIST_FOREACH(list, first, next, cur) {
+   71          if(middle > 0) {
+   72              List_push(left, cur->value);
+   73          } else {
+   74              List_push(right, cur->value);
+   75          }
+   76
+   77          middle--;
+   78      }
+   79
+   80      List *sort_left = List_merge_sort(left, cmp);
+   81      List *sort_right = List_merge_sort(right, cmp);
+   82
+   83      if(sort_left != left) List_destroy(left);
+   84      if(sort_right != right) List_destroy(right);
+   85
+   86      return List_merge(sort_left, sort_right, cmp);
+   87  }
+     __________________________________________________________________
+
+   The bubble sort isn't too bad to figure out, although it is really
+   slow. The merge sort is much more complicated, and honestly I could
+   probably spend a bit more time optimizing this code if I wanted to
+   sacrifice clarity.
+
+   There is another way to implement merge sort using a "bottom up"
+   method, but it's a little harder to understand so I didn't do it. As
+   I've already said, sorting algorithms on linked lists are entirely
+   pointless. You could spend all day trying to make this faster and it
+   will still be slower than almost any other sortable data structure. The
+   nature of linked lists is such that you simply don't use them if you
+   need to sort things.
+
+34.1 What You Should See
+
+   If everything works then you should get something like this:
+     __________________________________________________________________
+
+   Source 101: Ex33 Session
+   1  $ make clean all
+   2  rm -rf build src/lcthw/list.o src/lcthw/list_algos.o tests/list_algo
+   s_tests tests/list_tests
+   3  rm -f tests/tests.log
+   4  find . -name "*.gc*" -exec rm {} \;
+   5  rm -rf `find . -name "*.dSYM" -print`
+   6  cc -g -O2 -Wall -Wextra -Isrc -rdynamic -DNDEBUG  -fPIC   -c -o src/
+   lcthw/list.o src/lcthw/list.c
+   7  cc -g -O2 -Wall -Wextra -Isrc -rdynamic -DNDEBUG  -fPIC   -c -o src/
+   lcthw/list_algos.o src/lcthw/list_algos.c
+   8  ar rcs build/liblcthw.a src/lcthw/list.o src/lcthw/list_algos.o
+   9  ranlib build/liblcthw.a
+   10  cc -shared -o build/liblcthw.so src/lcthw/list.o src/lcthw/list_alg
+   os.o
+   11  cc -g -O2 -Wall -Wextra -Isrc -rdynamic -DNDEBUG  build/liblcthw.a
+      tests/list_algos_tests.c   -o tests/list_algos_tests
+   12  cc -g -O2 -Wall -Wextra -Isrc -rdynamic -DNDEBUG  build/liblcthw.a
+      tests/list_tests.c   -o tests/list_tests
+   13  sh ./tests/runtests.sh
+   14  Running unit tests:
+   15  ----
+   16  RUNNING: ./tests/list_algos_tests
+   17  ALL TESTS PASSED
+   18  Tests run: 2
+   19  tests/list_algos_tests PASS
+   20  ----
+   21  RUNNING: ./tests/list_tests
+   22  ALL TESTS PASSED
+   23  Tests run: 6
+   24  tests/list_tests PASS
+   25  $
+     __________________________________________________________________
+
+   After this exercise I'm not going to show you this output unless it's
+   necessary to show you how it works. From now on you should know that I
+   ran the tests and they all passed and everything compiled.
+
+34.2 How To Improve It
+
+   Going back to the description of the algorithms, there's several ways
+   to improve these implementations, and there's a few obvious ones:
+
+    1. The merge sort does a crazy amount of copying and creating lists,
+       find ways to reduce this.
+    2. The bubble sort Wikipedia description mentions a few optimizations,
+       implement them.
+    3. Can you use the List_split and List_join (if you implemented them)
+       to improve merge sort?
+    4. Go through all the defensive programming checks and improve the
+       robustness of this implementation, protecting against bad NULL
+       pointers, and create an optional debug level invariant that does
+       what is_sorted does after a sort.
+
+34.3 Extra Credit
+
+    1. Create a unit test that compares the performance of the two
+       algorithms. You'll want to look at man 3 time for a basic timer
+       function, and you'll want to run enough iterations to at least have
+       a few seconds of samples.
+    2. Play with the amount of data in the lists that need to be sorted
+       and see if that changes your timing.
+    3. Find a way to simulate filling different sized random lists and
+       measuring how long they take, then graph it and see how it compares
+       to the description of the algorithm.
+    4. Try to explain why sorting linked lists is a really bad idea.
+    5. Implement a List_insert_sorted that will take a given value, and
+       using the List_compare, insert the element at the right position so
+       that the list is always sorted. How does using this method compare
+       to sorting a list after you've built it?
+    6. Try implementing the "bottom up" merge sort on the wikipedia page.
+       The code there is already C so it should be easy to recreate, but
+       try to understand how it's working compared to the slower one I
+       have here.
+
+   [next] [prev] [prev-tail] [front] [up]
+     __________________________________________________________________
+
+   Please enable JavaScript to view the comments powered by Disqus.
+
+Take An Online Video Course
+
+   You can sign up for a video course at:
+
+   http://www.udemy.com/learn-c-the-hard-way/
+
+   This course is currently being built at the same time that the book is
+   being built, but if you sign up now then you get early access to both
+   the videos and PDF of the book.
+
+Related Books
+
+   You might want to check out these other books in the series:
+    1. Learn Ruby The Hard Way
+    2. Learn Regex The Hard Way
+    3. Learn SQL The Hard Way
+    4. Learn C The Hard Way
+    5. Learn Python The Hard Way
+
+   I'll be referencing other books shortly.
+
+   Copyright 2011 Zed A. Shaw. All Rights Reserved.

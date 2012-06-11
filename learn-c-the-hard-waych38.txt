@@ -1,0 +1,602 @@
+
+   Learn C The Hard Way A Learn Code The Hard Way Book
+     * Book
+     * Comments
+     * Video Courses
+     * Related Books
+
+   [next] [prev] [prev-tail] [tail] [up]
+
+Chapter 38
+Exercise 37: Hashmaps
+
+   Hash Maps (Hashmaps, Hashes, or sometimes Dictionaries) are used
+   frequently in many dynamic programming for storing key/value data. A
+   Hashmap works by performing a "hashing" calculation on the keys to
+   produce an integer, then uses that integer to find a bucket to get or
+   set the value. It is a very fast practical data structure since it
+   works on nearly any data and they are easy to implement.
+
+   Here's an example of using a Hashmap (aka dict) in Python:
+     __________________________________________________________________
+
+   Source 115: ex37.py
+   1  fruit_weights = {'Apples': 10, 'Oranges': 100, 'Grapes': 1.0}
+   2
+   3  for key, value in fruit_weights.items():
+   4      print key, "=", value
+     __________________________________________________________________
+
+   Almost every modern language has something like this, so many people
+   end up writing code and never understand how this actually works. By
+   creating the Hashmap data structure in C I'll show you how this works.
+   I'll start with the header file so I can talk about the data structure.
+     __________________________________________________________________
+
+   Source 116: src/lcthw/hashmap.h
+   1  #ifndef _lcthw_Hashmap_h
+   2  #define _lcthw_Hashmap_h
+   3
+   4  #include <stdint.h>
+   5  #include <lcthw/darray.h>
+   6
+   7  #define DEFAULT_NUMBER_OF_BUCKETS 100
+   8
+   9  typedef int (*Hashmap_compare)(void *a, void *b);
+   10  typedef uint32_t (*Hashmap_hash)(void *key);
+   11
+   12  typedef struct Hashmap {
+   13      DArray *buckets;
+   14      Hashmap_compare compare;
+   15      Hashmap_hash hash;
+   16  } Hashmap;
+   17
+   18  typedef struct HashmapNode {
+   19      void *key;
+   20      void *data;
+   21      uint32_t hash;
+   22  } HashmapNode;
+   23
+   24  typedef int (*Hashmap_traverse_cb)(HashmapNode *node);
+   25
+   26  Hashmap *Hashmap_create(Hashmap_compare compare, Hashmap_hash);
+   27  void Hashmap_destroy(Hashmap *map);
+   28
+   29  int Hashmap_set(Hashmap *map, void *key, void *data);
+   30  void *Hashmap_get(Hashmap *map, void *key);
+   31
+   32  int Hashmap_traverse(Hashmap *map, Hashmap_traverse_cb traverse_cb)
+   ;
+   33
+   34  void *Hashmap_delete(Hashmap *map, void *key);
+   35
+   36  #endif
+     __________________________________________________________________
+
+   The structure consists of a Hashmap that contains any number of
+   HashmapNode structs. Looking at Hashmap you can see that it is
+   structured like this:
+
+   DArray *buckets
+          A dynamic array that will be set to a fixed size of 100 buckets.
+          Each bucket will in turn contain a DArray that will actually
+          hold HashmapNode pairs.
+
+   Hashmap_compare compare
+          This is a comparison function that the Hashmap uses to actually
+          find elements by their key. It should work like all of the other
+          compare functions, and defaults to using bstrcmp so that keys
+          are just bstrings.
+
+   Hashmap_hash hash
+          This is the hashing function and it's responsible for taking a
+          key, processing its contents, and producing a single uint32_t
+          index number. You'll see the default one soon.
+
+   This almost tells you how the data is stored, but the bucketsDArray
+   isn't created yet. Just remember that it's kind of a two level mapping:
+    1. There are 100 buckets that make up the first level, and things are
+       in these buckets based on their hash.
+    2. Each bucket is a DArray that then contains HashmapNode structs
+       simply appended to the end as they're added.
+
+   The HashmapNode is then composed of these three elements:
+
+   void *key
+          The key for this key=value pair.
+
+   void *value
+          The value.
+
+   uint32_t hash
+          The calculated hash, which makes finding this node quicker since
+          we can just check the hash and skip any that don't match, only
+          checking they key if it's equal.
+
+   The rest of the header file is nothing new, so now I can show you the
+   implementation hashmap.c file:
+     __________________________________________________________________
+
+   Source 117: src/lcthw/hashmap.c
+   1  #undef NDEBUG
+   2  #include <stdint.h>
+   3  #include <lcthw/hashmap.h>
+   4  #include <lcthw/dbg.h>
+   5  #include <lcthw/bstrlib.h>
+   6
+   7  static int default_compare(void *a, void *b)
+   8  {
+   9      return bstrcmp((bstring)a, (bstring)b);
+   10  }
+   11
+   12  /**
+   13   * Simple Bob Jenkins's hash algorithm taken from the
+   14   * wikipedia description.
+   15   */
+   16  static uint32_t default_hash(void *a)
+   17  {
+   18      size_t len = blength((bstring)a);
+   19      char *key = bdata((bstring)a);
+   20      uint32_t hash = 0;
+   21      uint32_t i = 0;
+   22
+   23      for(hash = i = 0; i < len; ++i)
+   24      {
+   25          hash += key[i];
+   26          hash += (hash << 10);
+   27          hash ^= (hash >> 6);
+   28      }
+   29
+   30      hash += (hash << 3);
+   31      hash ^= (hash >> 11);
+   32      hash += (hash << 15);
+   33
+   34      return hash;
+   35  }
+   36
+   37
+   38  Hashmap *Hashmap_create(Hashmap_compare compare, Hashmap_hash hash)
+   39  {
+   40      Hashmap *map = calloc(1, sizeof(Hashmap));
+   41      check_mem(map);
+   42
+   43      map->compare = compare == NULL ? default_compare : compare;
+   44      map->hash = hash == NULL ? default_hash : hash;
+   45      map->buckets = DArray_create(sizeof(DArray *), DEFAULT_NUMBER_O
+   F_BUCKETS);
+   46      map->buckets->end = map->buckets->max; // fake out expanding it
+   47      check_mem(map->buckets);
+   48
+   49      return map;
+   50
+   51  error:
+   52      if(map) {
+   53          Hashmap_destroy(map);
+   54      }
+   55
+   56      return NULL;
+   57  }
+   58
+   59
+   60  void Hashmap_destroy(Hashmap *map)
+   61  {
+   62      int i = 0;
+   63      int j = 0;
+   64
+   65      if(map) {
+   66          if(map->buckets) {
+   67              for(i = 0; i < DArray_count(map->buckets); i++) {
+   68                  DArray *bucket = DArray_get(map->buckets, i);
+   69                  if(bucket) {
+   70                      for(j = 0; j < DArray_count(bucket); j++) {
+   71                          free(DArray_get(bucket, j));
+   72                      }
+   73                      DArray_destroy(bucket);
+   74                  }
+   75              }
+   76              DArray_destroy(map->buckets);
+   77          }
+   78
+   79          free(map);
+   80      }
+   81  }
+   82
+   83  static inline HashmapNode *Hashmap_node_create(int hash, void *key,
+    void *data)
+   84  {
+   85      HashmapNode *node = calloc(1, sizeof(HashmapNode));
+   86      check_mem(node);
+   87
+   88      node->key = key;
+   89      node->data = data;
+   90      node->hash = hash;
+   91
+   92      return node;
+   93
+   94  error:
+   95      return NULL;
+   96  }
+   97
+   98
+   99  static inline DArray *Hashmap_find_bucket(Hashmap *map, void *key,
+   100          int create, uint32_t *hash_out)
+   101  {
+   102      uint32_t hash = map->hash(key);
+   103      int bucket_n = hash % DEFAULT_NUMBER_OF_BUCKETS;
+   104      check(bucket_n >= 0, "Invalid bucket found: %d", bucket_n);
+   105      *hash_out = hash; // store it for the return so the caller can
+    use it
+   106
+   107
+   108      DArray *bucket = DArray_get(map->buckets, bucket_n);
+   109
+   110      if(!bucket && create) {
+   111          // new bucket, set it up
+   112          bucket = DArray_create(sizeof(void *), DEFAULT_NUMBER_OF_B
+   UCKETS);
+   113          check_mem(bucket);
+   114          DArray_set(map->buckets, bucket_n, bucket);
+   115      }
+   116
+   117      return bucket;
+   118
+   119  error:
+   120      return NULL;
+   121  }
+   122
+   123
+   124  int Hashmap_set(Hashmap *map, void *key, void *data)
+   125  {
+   126      uint32_t hash = 0;
+   127      DArray *bucket = Hashmap_find_bucket(map, key, 1, &hash);
+   128      check(bucket, "Error can't create bucket.");
+   129
+   130      HashmapNode *node = Hashmap_node_create(hash, key, data);
+   131      check_mem(node);
+   132
+   133      DArray_push(bucket, node);
+   134
+   135      return 0;
+   136
+   137  error:
+   138      return -1;
+   139  }
+   140
+   141  static inline int Hashmap_get_node(Hashmap *map, uint32_t hash, DA
+   rray *bucket, void *key)
+   142  {
+   143      int i = 0;
+   144
+   145      for(i = 0; i < DArray_end(bucket); i++) {
+   146          debug("TRY: %d", i);
+   147          HashmapNode *node = DArray_get(bucket, i);
+   148          if(node->hash == hash && map->compare(node->key, key) == 0
+   ) {
+   149              return i;
+   150          }
+   151      }
+   152
+   153      return -1;
+   154  }
+   155
+   156  void *Hashmap_get(Hashmap *map, void *key)
+   157  {
+   158      uint32_t hash = 0;
+   159      DArray *bucket = Hashmap_find_bucket(map, key, 0, &hash);
+   160      if(!bucket) return NULL;
+   161
+   162      int i = Hashmap_get_node(map, hash, bucket, key);
+   163      if(i == -1) return NULL;
+   164
+   165      HashmapNode *node = DArray_get(bucket, i);
+   166      check(node != NULL, "Failed to get node from bucket when it sh
+   ould exist.");
+   167
+   168      return node->data;
+   169
+   170  error: // fallthrough
+   171      return NULL;
+   172  }
+   173
+   174
+   175  int Hashmap_traverse(Hashmap *map, Hashmap_traverse_cb traverse_cb
+   )
+   176  {
+   177      int i = 0;
+   178      int j = 0;
+   179      int rc = 0;
+   180
+   181      for(i = 0; i < DArray_count(map->buckets); i++) {
+   182          DArray *bucket = DArray_get(map->buckets, i);
+   183          if(bucket) {
+   184              for(j = 0; j < DArray_count(bucket); j++) {
+   185                  HashmapNode *node = DArray_get(bucket, j);
+   186                  rc = traverse_cb(node);
+   187                  if(rc != 0) return rc;
+   188              }
+   189          }
+   190      }
+   191
+   192      return 0;
+   193  }
+   194
+   195  void *Hashmap_delete(Hashmap *map, void *key)
+   196  {
+   197      uint32_t hash = 0;
+   198      DArray *bucket = Hashmap_find_bucket(map, key, 0, &hash);
+   199      if(!bucket) return NULL;
+   200
+   201      int i = Hashmap_get_node(map, hash, bucket, key);
+   202      if(i == -1) return NULL;
+   203
+   204      HashmapNode *node = DArray_get(bucket, i);
+   205      void *data = node->data;
+   206      free(node);
+   207
+   208      HashmapNode *ending = DArray_pop(bucket);
+   209
+   210      if(ending != node) {
+   211          // alright looks like it's not the last one, swap it
+   212          DArray_set(bucket, i, ending);
+   213      }
+   214
+   215      return data;
+   216  }
+     __________________________________________________________________
+
+   There's nothing very complicated in the implementation, but the
+   default_hash and Hashmap_find_bucket functions will need some
+   explanation. When you use Hashmap_create you can pass in any compare
+   and hash functions you want, but if you don't it uses the
+   default_compare and default_hash functions.
+
+   The first thing to look at is how default_hash does its thing. This is
+   a simple hash function called a "Jenkins hash" after Bob Jenkins. I got
+   if from the Wikipedia page for the algorithm. It simply goes through
+   each byte of the key to hash (a bstring) and works the bits so that the
+   end result is a single uint32_t. It does this with some adding and xor
+   operations.
+
+   There are many different hash functions, all with different properties,
+   but once you have one you need a way to use it to find the right
+   buckets. The Hashmap_find_bucket does it like this:
+    1. First it calls map->hash(key) to get the hash for the key.
+    2. It then finds the bucket using hash % DEFAULT_NUMBER_OF_BUCKETS,
+       that way every hash will always find some bucket no matter how big
+       it is.
+    3. It then gets the bucket, which is also a DArray, and if it's not
+       there it will create it. That depends on if the create variable
+       says too.
+    4. Once it has found the DArray bucket for the right hash, it returns
+       it, and also the hash_out variable is used to give the caller the
+       hash that was found.
+
+   All of the other functions then use Hashmap_find_bucket to do their
+   work:
+    1. Setting a key/value involves finding the bucket, then making a
+       HashmapNode, and then adding it to the bucket.
+    2. Getting a key involves finding the bucket, then finding the
+       HashmapNode that matches the hash and key you want.
+    3. Deleting an item again finds the bucket, finds where the requested
+       node is, and then removes it by swapping the last node into its
+       place.
+
+   The only other function that you should study is the Hashmap_travers.
+   This simply walks every bucket, and for any bucket that has possible
+   values, it calls the traverse_cb on each value. This is how you scan a
+   whole Hashmap for its values.
+
+38.0.1 The Unit Test
+
+   Finally you have the unit test that is testing all of these operations:
+     __________________________________________________________________
+
+   Source 118: tests/hashmap_tests.c
+   1  #include "minunit.h"
+   2  #include <lcthw/hashmap.h>
+   3  #include <assert.h>
+   4  #include <lcthw/bstrlib.h>
+   5
+   6  Hashmap *map = NULL;
+   7  static int traverse_called = 0;
+   8  struct tagbstring test1 = bsStatic("test data 1");
+   9  struct tagbstring test2 = bsStatic("test data 2");
+   10  struct tagbstring test3 = bsStatic("xest data 3");
+   11  struct tagbstring expect1 = bsStatic("THE VALUE 1");
+   12  struct tagbstring expect2 = bsStatic("THE VALUE 2");
+   13  struct tagbstring expect3 = bsStatic("THE VALUE 3");
+   14
+   15  static int traverse_good_cb(HashmapNode *node)
+   16  {
+   17      debug("KEY: %s", bdata((bstring)node->key));
+   18      traverse_called++;
+   19      return 0;
+   20  }
+   21
+   22
+   23  static int traverse_fail_cb(HashmapNode *node)
+   24  {
+   25      debug("KEY: %s", bdata((bstring)node->key));
+   26      traverse_called++;
+   27
+   28      if(traverse_called == 2) {
+   29          return 1;
+   30      } else {
+   31          return 0;
+   32      }
+   33  }
+   34
+   35
+   36  char *test_create()
+   37  {
+   38      map = Hashmap_create(NULL, NULL);
+   39      mu_assert(map != NULL, "Failed to create map.");
+   40
+   41      return NULL;
+   42  }
+   43
+   44  char *test_destroy()
+   45  {
+   46      Hashmap_destroy(map);
+   47
+   48      return NULL;
+   49  }
+   50
+   51
+   52  char *test_get_set()
+   53  {
+   54      int rc = Hashmap_set(map, &test1, &expect1);
+   55      mu_assert(rc == 0, "Failed to set &test1");
+   56      bstring result = Hashmap_get(map, &test1);
+   57      mu_assert(result == &expect1, "Wrong value for test1.");
+   58
+   59      rc = Hashmap_set(map, &test2, &expect2);
+   60      mu_assert(rc == 0, "Failed to set test2");
+   61      result = Hashmap_get(map, &test2);
+   62      mu_assert(result == &expect2, "Wrong value for test2.");
+   63
+   64      rc = Hashmap_set(map, &test3, &expect3);
+   65      mu_assert(rc == 0, "Failed to set test3");
+   66      result = Hashmap_get(map, &test3);
+   67      mu_assert(result == &expect3, "Wrong value for test3.");
+   68
+   69      return NULL;
+   70  }
+   71
+   72  char *test_traverse()
+   73  {
+   74      int rc = Hashmap_traverse(map, traverse_good_cb);
+   75      mu_assert(rc == 0, "Failed to traverse.");
+   76      mu_assert(traverse_called == 3, "Wrong count traverse.");
+   77
+   78      traverse_called = 0;
+   79      rc = Hashmap_traverse(map, traverse_fail_cb);
+   80      mu_assert(rc == 1, "Failed to traverse.");
+   81      mu_assert(traverse_called == 2, "Wrong count traverse for fail.
+   ");
+   82
+   83      return NULL;
+   84  }
+   85
+   86  char *test_delete()
+   87  {
+   88      bstring deleted = (bstring)Hashmap_delete(map, &test1);
+   89      mu_assert(deleted != NULL, "Got NULL on delete.");
+   90      mu_assert(deleted == &expect1, "Should get test1");
+   91      bstring result = Hashmap_get(map, &test1);
+   92      mu_assert(result == NULL, "Should delete.");
+   93
+   94      deleted = (bstring)Hashmap_delete(map, &test2);
+   95      mu_assert(deleted != NULL, "Got NULL on delete.");
+   96      mu_assert(deleted == &expect2, "Should get test2");
+   97      result = Hashmap_get(map, &test2);
+   98      mu_assert(result == NULL, "Should delete.");
+   99
+   100      deleted = (bstring)Hashmap_delete(map, &test3);
+   101      mu_assert(deleted != NULL, "Got NULL on delete.");
+   102      mu_assert(deleted == &expect3, "Should get test3");
+   103      result = Hashmap_get(map, &test3);
+   104      mu_assert(result == NULL, "Should delete.");
+   105
+   106      return NULL;
+   107  }
+   108
+   109  char *all_tests()
+   110  {
+   111      mu_suite_start();
+   112
+   113      mu_run_test(test_create);
+   114      mu_run_test(test_get_set);
+   115      mu_run_test(test_traverse);
+   116      mu_run_test(test_delete);
+   117      mu_run_test(test_destroy);
+   118
+   119      return NULL;
+   120  }
+   121
+   122  RUN_TESTS(all_tests);
+     __________________________________________________________________
+
+   The only thing to learn about this unit test is that at the top I use a
+   feature of bstring to create static strings to work with in the tests.
+   I use the tagbstring and bsStatic to create them on lines 7-13.
+
+38.1 How To Improve It
+
+   This is a very simple implementation of Hashmap as are most of the
+   other data structures in this book. My goal isn't to give you insanely
+   great hyper speed well tuned data structures. Usually those are much
+   too complicated to discuss and only distract you from the real basic
+   data structure at work. My goal is to give you an understandable
+   starting point to then improve it or understand how they are
+   implemented.
+
+   In this case, there's some things you can do with this implementation:
+
+    1. You can use a sort on each bucket so that they are always sorted.
+       This increases your insert time, but decreases your find time
+       because you can then use a binary search to find each node. Right
+       now it's looping through all of the nodes in a bucket just to find
+       one.
+    2. You can dynamically size the number of buckets, or let the caller
+       specify the number for each Hashmap created.
+    3. You can use a better default_hash. There are tons of them.
+    4. This (and nearly every Hashmap is vulnerable to someone picking
+       keys that will fill only one bucket, and then tricking your program
+       into processing them. This then makes your program run slower
+       because it changes from processing a Hashmap to effectively
+       processing a single DArray. If you sort the nodes in the bucket
+       this helps, but you can also use better hashing functions, and for
+       the really paranoid add a random salt so that keys can't be
+       predicted.
+    5. You could have it delete buckets that are empty of nodes to save
+       space, or put empty buckets into a cache so you save on creating
+       and destroying them.
+    6. Right now it just adds elements even if they already exist. Write
+       an alternative set method that only adds it if it isn't set
+       already.
+
+   As usual you should go through each function and make it bullet proof.
+   The Hashmap could also use a debug setting for doing an invariant
+   check.
+
+38.2 Extra Credit
+
+    1. Research the Hashmap implementation of your favorite programming
+       language to see what features they have.
+    2. Find out what the major disadvantages of a Hashmap are and how to
+       avoid them. For example, they do not preserve order without special
+       changes and they don't work when you need to find things based on
+       parts of keys.
+    3. Write a unit test that demonstrates the defect of filling a Hashmap
+       with keys that land in the same bucket, then test how this impact
+       performance. A good way to do this is to just reduce the number of
+       buckets to something stupid like 5.
+
+   [next] [prev] [prev-tail] [front] [up]
+     __________________________________________________________________
+
+   Please enable JavaScript to view the comments powered by Disqus.
+
+Take An Online Video Course
+
+   You can sign up for a video course at:
+
+   http://www.udemy.com/learn-c-the-hard-way/
+
+   This course is currently being built at the same time that the book is
+   being built, but if you sign up now then you get early access to both
+   the videos and PDF of the book.
+
+Related Books
+
+   You might want to check out these other books in the series:
+    1. Learn Ruby The Hard Way
+    2. Learn Regex The Hard Way
+    3. Learn SQL The Hard Way
+    4. Learn C The Hard Way
+    5. Learn Python The Hard Way
+
+   I'll be referencing other books shortly.
+
+   Copyright 2011 Zed A. Shaw. All Rights Reserved.

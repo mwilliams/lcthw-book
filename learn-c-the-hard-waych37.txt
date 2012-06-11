@@ -1,0 +1,238 @@
+
+   Learn C The Hard Way A Learn Code The Hard Way Book
+     * Book
+     * Comments
+     * Video Courses
+     * Related Books
+
+   [next] [prev] [prev-tail] [tail] [up]
+
+Chapter 37
+Exercise 36: Safer Strings
+
+   I've already introduced you to the Better String library in Exercise 26
+   when we made devpkg. This exercise is designed to get you into using
+   bstring from now on, why C's strings are an incredibly bad idea, and
+   then have you change the liblcthw code to use bstring.
+
+37.1 Why C Strings Were A Horrible Idea
+
+   When people talk about problems with C, it's concept of a "string" is
+   one of the top flaws. You've been using these extensively, and I've
+   talked about the kinds of flaws they have, but there's not much that
+   explains exactly why C strings are flawed and always will be. I'll try
+   to explain that right now, but part of my explanation will just be that
+   after decades of using C's strings there's enough evidence that they
+   are just a bad idea.
+
+   It is impossible to confirm that any given C string is valid:
+
+    1. A C string is invalid if it does not end in '\0'.
+    2. Any loop that processes an invalid C string will loop infinitely
+       (or, just buffer overflow).
+    3. C strings do not have a known length, so the only way to check if
+       it's terminated correctly is to loop through it.
+    4. Therefore, it is not possible to validate a C string without
+       possibly looping infinitely.
+
+   This is simple logic. You can't write a loop that checks if a C string
+   is valid because invalid C strings cause loops to never terminate.
+   That's it, and the only solution is to include the size. Once you know
+   the size you can avoid the infinite loop problem. If you look at the
+   two functions I showed you from Exercise 27 you can see this:
+     __________________________________________________________________
+
+   Source 112: ex36.c
+   1  void copy(char to[], char from[])
+   2  {
+   3      int i = 0;
+   4
+   5      // while loop will not end if from isn't '\0' terminated
+   6      while((to[i] = from[i]) != '\0') {
+   7          ++i;
+   8      }
+   9  }
+   10
+   11  int safercopy(int from_len, char *from, int to_len, char *to)
+   12  {
+   13      int i = 0;
+   14      int max = from_len > to_len - 1 ? to_len - 1 : from_len;
+   15
+   16      // to_len must have at least 1 byte
+   17      if(from_len < 0 || to_len <= 0) return -1;
+   18
+   19      for(i = 0; i < max; i++) {
+   20          to[i] = from[i];
+   21      }
+   22
+   23      to[to_len - 1] = '\0';
+   24
+   25      return i;
+   26  }
+     __________________________________________________________________
+
+   Imagine you want to add a check to the copy function to confirm that
+   the from string is valid. How would you do that? Why you'd write a loop
+   that checked that the string ended in '\0'. Oh wait, if the string
+   doesn't end in '\0' then how does the checking loop end? It doesn't.
+   Checkmate.
+
+   No matter what you do, you can't check that a C string is valid without
+   knowing the length of the underlying storage, and in this case the
+   safercopy includes those lengths. This function doesn't have the same
+   problem as it's loops will always terminate, even if you lie to it
+   about the size, you still have to give it a finite size.
+
+   What the Better String library does is create a struct that always
+   includes the length of the string's storage. Because the length is
+   always available to a bstring then all of its operations can be safer.
+   The loops will terminate, the contents can be validated, and it will
+   not have this major flaw. The bstring library also comes with a ton of
+   operations you need with strings, like splitting, formatting,
+   searching, and they are most likely done right and safer.
+
+   There could be flaws in bstring, but it's been around a long time so
+   those are probably minimal. They still find flaws in glibc so what's a
+   programmer to do right?
+
+37.2 Using bstrlib
+
+   There's quite a few improved string libraries, but I like bstrlib
+   because it fits in one file for the basics and has most of the stuff
+   you need to deal with strings. You've already used it a bit, so in this
+   exercise you'll go get the two files bstrlib.c and bstrlib.h from the
+   Better String project.
+
+   Here's me doing this in the liblcthw project directory:
+     __________________________________________________________________
+
+   Source 113: Adding bstrlib.c
+   1  $ mkdir bstrlib
+   2  $ cd bstrlib/
+   3  $ unzip ~/Downloads/bstrlib-05122010.zip
+   4  Archive:  /Users/zedshaw/Downloads/bstrlib-05122010.zip
+   5  ...
+   6  $ ls
+   7  bsafe.c bstraux.c bstrlib.h bstrwrap.h license.txt test.cpp
+   8  bsafe.h bstraux.h bstrlib.txt cpptest.cpp porting.txt testaux.c
+   9  bstest.c bstrlib.c bstrwrap.cpp gpl.txt security.txt
+   10  $ mv bstrlib.h bstrlib.c ../src/lcthw/
+   11  $ cd ../
+   12  $ rm -rf bstrlib
+   13  # make the edits
+   14  $ vim src/lcthw/bstrlib.c
+   15  $ make clean all
+   16  ...
+   17  $
+     __________________________________________________________________
+
+   On line 14 you seem me edit the bstrlib.c file to move it to a new
+   location and to fix a bug on OSX. Here's the diff:
+     __________________________________________________________________
+
+   Source 114: bstrlib.diff
+     25c25
+     < #include "bstrlib.h"
+     ---
+     > #include <lcthw/bstrlib.h>
+     2759c2759
+     < #ifdef __GNUC__
+     ---
+     > #if defined(__GNUC__) && !defined(__APPLE__)
+     __________________________________________________________________
+
+   That is, change the include to be <lcthw/bstrlib.h>, and then fix one
+   of the ifdef at line 2759.
+
+37.3 Learning The Library
+
+   This exercise is short and simply getting you ready for the remaining
+   exercises that use the library. In the next two exercises I'll use
+   bstrlib.c to create a Hashmap data structure.
+
+   You should now get familiar with this library by reading the header
+   file, the implementations, and then write a tests/bstr_tests.c that
+   tests out the following functions:
+
+   bfromcstr
+          Create a bstring from a C style constant.
+
+   blk2bstr
+          Same but give the length of the buffer.
+
+   bstrcpy
+          Copy a bstring.
+
+   bassign
+          Set one bstring to another.
+
+   bassigncstr
+          Set a bstring to a C string's contents.
+
+   bassignblk
+          Set a bstring to a C string but give the length.
+
+   bdestroy
+          Destroy a bstring.
+
+   bconcat
+          Concatenate one bstring onto another.
+
+   bstricmp
+          Compare two bstrings returning the same result as strcmp.
+
+   biseq
+          Tests if two bstrings are equal.
+
+   binstr
+          Tells if one bstring is in another.
+
+   bfindreplace
+          Find one bstring in another then replace it with a third.
+
+   bsplit
+          How to split a bstring into a bstrList.
+
+   bformat
+          Doing a format string, super handy.
+
+   blength
+          Getting the length of a bstring.
+
+   bdata
+          Getting the data from a bstring.
+
+   bchar
+          Getting a char from a bstring.
+
+   Your test should try out all of these operations, and a few more that
+   you find interesting from the header file. Make sure to run the test
+   under valgrind to make sure you use the memory correctly.
+
+   [next] [prev] [prev-tail] [front] [up]
+     __________________________________________________________________
+
+   Please enable JavaScript to view the comments powered by Disqus.
+
+Take An Online Video Course
+
+   You can sign up for a video course at:
+
+   http://www.udemy.com/learn-c-the-hard-way/
+
+   This course is currently being built at the same time that the book is
+   being built, but if you sign up now then you get early access to both
+   the videos and PDF of the book.
+
+Related Books
+
+   You might want to check out these other books in the series:
+    1. Learn Ruby The Hard Way
+    2. Learn Regex The Hard Way
+    3. Learn SQL The Hard Way
+    4. Learn C The Hard Way
+    5. Learn Python The Hard Way
+
+   I'll be referencing other books shortly.
+
+   Copyright 2011 Zed A. Shaw. All Rights Reserved.

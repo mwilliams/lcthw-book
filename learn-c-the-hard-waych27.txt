@@ -1,0 +1,1146 @@
+
+   Learn C The Hard Way A Learn Code The Hard Way Book
+     * Book
+     * Comments
+     * Video Courses
+     * Related Books
+
+   [next] [prev] [prev-tail] [tail] [up]
+
+Chapter 27
+Exercise 26: Write A First Real Program
+
+   You are at the half-way mark in the book, so you need to take a
+   mid-term. In this mid-term you're going to recreate a piece of software
+   I wrote specifically for this book called devpkg. You'll then extend it
+   in a few key ways and improve the code, most importantly by writing
+   some unit tests for it.
+     __________________________________________________________________
+
+   Note 7: WARNING: Beta Draft Content
+
+   I wrote this exercise before writing some of the exercises you might
+   need to complete this. If you are attempting this one now, please keep
+   in mind that the software may have bugs, that you might have problems
+   because of my mistakes, and that you might not know everything you need
+   to finish it. If so, tell me at help@learncodethehardway.org and then
+   wait until I finish the other exercises.
+     __________________________________________________________________
+
+27.1 What Is devpkg?
+
+   Devpkg is a simple C program that installs other software. I made it
+   specifically for this book as a way to teach you how a real software
+   project is structured, and also how to reuse other people's libraries.
+   It uses a portability library called The Apache Portable Runtime (APR)
+   that has many handy C functions which work on tons of platforms,
+   including Windows. Other than that, it just grabs code from the
+   internet (or local files) and does the usual
+   ./configure ; make ; make install every programmer does.
+
+   Your goal in this exercise is to build devpkg from source, finish each
+   Challenge I give, and use the source to understand what devpkg does and
+   why.
+
+27.1.1 What We Want To Make
+
+   We want a tool that has three commands:
+
+    1. Sets up a new install on a computer.
+    2. Installs a piece of software from a URL.
+    3. Lists all the software that's been installed.
+    4. Fetches some source code for manual building.
+    5. Builds fetches source code and installs it, even if already
+       installed.
+
+   We want devpkg to be able to take almost any URL, figure out what kind
+   of project it is, download it, install it, and register that it
+   downloaded that software. We'd also like it to process a simple
+   dependency list so it can install all the software that a project might
+   need as well.
+
+27.1.2 The Design
+
+   To accomplish this goal devpkg will have a very simple design:
+
+   Use external commands
+          You'll do most of the work through external commands like curl,
+          git, and tar. This reduces the amount of code devpkg needs to
+          get things done.
+
+   Simple File Database
+          You could easily make it more complex, but to start you'll just
+          make a single simple file database at /usr/local/.devpkg/db to
+          keep track of what's installed.
+
+   /usr/local Always
+          Again you could make this more advanced, but for starters just
+          assume it's always /usr/local which is a standard install path
+          for most software on Unix.
+
+   configure, make, make install
+          It's assumed that most software can install with just a
+          configure; make; make install and maybe configure is optional.
+          If the software can't at a minimum do that, then there's some
+          options to modify the commands, but otherwise devpkg won't
+          bother.
+
+   The User Can Be root
+          We'll assume the user can become root using sudo, but that they
+          don't want to become root until the end.
+
+   This will keep our program small at first and work well enough to get
+   it going, at which point you'll be able to modify it further for this
+   exercise.
+
+27.1.3 The Apache Portable Runtime
+
+   One more thing you'll do is leverage the The Apache Portable Runtime
+   (APR) libraries to get a good set of portable routines for doing this
+   kind of work. The APR isn't necessary, and you could probably write
+   this program without them, but it'd take more code than necessary. I'm
+   also forcing you to use APR now so you get used to linking and using
+   other libraries. Finally, the APR also works on Windows so your skills
+   with it are transferable to many other platforms.
+
+   You should go get both the apr-1.4.5 and the apr-util-1.3 libraries, as
+   well as browse through the documentation available at the main APR site
+   at apr.apache.org.
+
+   Here's a shell script that will install all the stuff you need. You
+   should write this into a file by hand, and then run it until it can
+   install APR without any errors.
+     __________________________________________________________________
+
+   Source 67: APR Install Script
+   1  set -e
+   2
+   3  # go somewhere safe
+   4  cd /tmp
+   5
+   6  # get the source to base APR 1.4.6
+   7  curl -L -O http://archive.apache.org/dist/apr/apr-1.4.6.tar.gz
+   8
+   9  # extract it and go into the source
+   10  tar -xzvf apr-1.4.6.tar.gz
+   11  cd apr-1.4.6
+   12
+   13  # configure, make, make install
+   14  ./configure
+   15  make
+   16  sudo make install
+   17
+   18  # reset and cleanup
+   19  cd /tmp
+   20  rm -rf apr-1.4.6 apr-1.4.6.tar.gz
+   21
+   22  # do the same with apr-util
+   23  curl -L -O http://archive.apache.org/dist/apr/apr-util-1.4.1.tar.gz
+   24
+   25  # extract
+   26  tar -xzvf apr-util-1.4.1.tar.gz
+   27  cd apr-util-1.4.1
+   28
+   29  # configure, make, make install
+   30  ./configure --with-apr=/usr/local/apr
+   31  # you need that extra parameter to configure because
+   32  # apr-util can't really find it because...who knows.
+   33
+   34  make
+   35  sudo make install
+   36
+   37  #cleanup
+   38  cd /tmp
+   39  rm -rf apr-util-1.4.1* apr-1.4.6*
+     __________________________________________________________________
+
+   I'm having you write this script out because this is basically what we
+   want devpkg to do, but with extra options and checks. In fact, you
+   could just do it all in shell with less code, but then that wouldn't be
+   a very good program for a C book would it?
+
+   Simply run this script and fix it until it works, then you'll have the
+   libraries you need to complete the rest of this project.
+
+27.2 Project Layout
+
+   You need to setup some simple project files to get started. Here's how
+   I usually craft a new project:
+     __________________________________________________________________
+
+   Source 68: Project Skeleton Directory
+   1  mkdir devpkg
+   2  cd devpkg
+   3  touch README Makefile
+     __________________________________________________________________
+
+27.2.1 Other Dependencies
+
+   You should have already installed APR and APR-util, so now you need a
+   few more files as basic dependencies:
+
+    1. dbg.h from Exercise 20.
+    2. bstrlib.h and bstrlib.c from http://bstring.sourceforge.net/.
+       Download the .zip file, extract it, and copy just those two files
+       out.
+    3. Type make bstrlib.o and if it doesn't work, read the "Fixing
+       bstring" instructions below.
+     __________________________________________________________________
+
+   Note 8: Fixing bstring
+
+   In some platforms the bstring.c file will have an error like:
+   1bstrlib.c:2762: error: expected declaration specifiers or '...' before
+    numeric constant
+
+   This is from a bad define the authors added which doesn't work always.
+   You just need to change the line 2759 that reads #ifdef __GNUC__ and
+   make it:
+
+   #if defined(__GNUC__) && !defined(__APPLE__)
+
+   Then it should work on Apple Mac OSX.
+     __________________________________________________________________
+
+   When that's all done, you should have a Makefile, README, dbg.h,
+   bstrlib.h, and bstrlib.c ready to go.
+
+27.3 The Makefile
+
+   A good place to start is the Makefile since this lays out how things
+   are built and what source files you'll be creating.
+     __________________________________________________________________
+
+   Source 69: Makefile
+   1PREFIX?=/usr/local
+   2CFLAGS=-g -Wall -I${PREFIX}/apr/include/apr-1  -I${PREFIX}/apr/include
+   /apr-util-1
+   3LDFLAGS=-L${PREFIX}/apr/lib -lapr-1 -pthread -laprutil-1
+   4
+   5all: devpkg
+   6
+   7devpkg: bstrlib.o db.o shell.o commands.o
+   8
+   9install: all
+   10        install -d $(DESTDIR)/$(PREFIX)/bin/
+   11        install devpkg $(DESTDIR)/$(PREFIX)/bin/
+   12
+   13clean:
+   14        rm -f *.o
+   15        rm -f devpkg
+   16        rm -rf *.dSYM
+     __________________________________________________________________
+
+   There's nothing in this that you haven't seen before, except maybe the
+   strange ?= syntax, which says "set PREFIX equal to this unless PREFIX
+   is already set".
+     __________________________________________________________________
+
+   Note 9: Ubuntu Annoyances
+
+   If you are on more recent versions of Ubuntu and you get errors about
+   apr_off_t or off64_t then add -D_LARGEFILE64_SOURCE=1 to CFLAGS.
+
+   Another thing is you need to add /usr/local/apr/lib to a file in
+   /etc/ld.conf.so.d/ then run ldconfig so that it picks up the libraries
+   correctly.
+     __________________________________________________________________
+
+27.4 The Source Files
+
+   From the make file, we see that there's four dependencies for devpkg
+   which are:
+
+   bstrlib.o
+          Comes from bstrlib.c and header file bstlib.h which you already
+          have.
+
+   db.o
+          From db.c and header file db.h, and it will contain code for our
+          little "database" routines.
+
+   shell.o
+          From shell.c and header shell.h, with a couple functions that
+          make running other commands like curl easier.
+
+   commands.o
+          From command.c and header command.h, and contains all the
+          commands that devpkg needs to be useful.
+
+   devpkg
+          It's not explicitly mentioned, but instead is the target (on the
+          left) in this part of the Makefile. It comes from devpkg.c which
+          contains the main function for the whole program.
+
+   Your job is to now create each of these files and type in their code
+   and get them correct.
+     __________________________________________________________________
+
+   Note 10: Don't Be Fooled By The Magic Show
+
+   You may read this description and think, "Man! How is it that Zed is so
+   smart he just sat down and typed these files out like this!? I could
+   never do that." I didn't magically craft devpkg in this form with my
+   awesome code powers. Instead, what I did is this:
+    1. I wrote a quick little README to get an idea of how I wanted it to
+       work.
+    2. I created a simple bash script (like the one you did) to figure out
+       all the pieces that you need.
+    3. I made one .c file and hacked on it for a few days working through
+       the idea and figuring it out.
+    4. I got it mostly working and debugged, then I started breaking up
+       the one big file into these four files.
+    5. After getting these files laid down, I renamed and refined the
+       functions and data structures so they'd be more logical and
+       "pretty".
+    6. Finally, after I had it working the exact same but with the new
+       structure, I added a few features like the -F and -B options.
+
+   You're reading this in the order I want to teach it to you, but don't
+   think this is how I always build software. Sometimes I already know the
+   subject and I use more planning. Sometimes I just hack up an idea and
+   see how well it'd work. Sometimes I write one, then throw it away and
+   plan out a better one. It all depends on what my experience tells me is
+   best, or where my inspiration takes me.
+
+   If you run into an "expert" who tries to tell you there's only one way
+   to solve a programming problem, then they're lying to you. Either they
+   actually use multiple tactics, or they're not very good.
+     __________________________________________________________________
+
+27.4.1 The DB Functions
+
+   There must be a way to record URLs that have been installed, list these
+   URLs, and check if something has already been installed so we can skip
+   it. I'll use a simple flat file database and the bstrlib.h library to
+   do it.
+
+   First, create the db.h header file so you know what you'll be
+   implementing.
+     __________________________________________________________________
+
+   Source 70: db.h
+   1  #ifndef _db_h
+   2  #define _db_h
+   3
+   4  #define DB_FILE "/usr/local/.devpkg/db"
+   5  #define DB_DIR "/usr/local/.devpkg"
+   6
+   7
+   8  int DB_init();
+   9  int DB_list();
+   10  int DB_update(const char *url);
+   11  int DB_find(const char *url);
+   12
+   13  #endif
+     __________________________________________________________________
+
+   Then implement those functions in db.c, as you build this, use make
+   like you've been to get it to compile cleanly.
+     __________________________________________________________________
+
+   Source 71: db.c
+   1  #include <unistd.h>
+   2  #include <apr_errno.h>
+   3  #include <apr_file_io.h>
+   4
+   5  #include "db.h"
+   6  #include "bstrlib.h"
+   7  #include "dbg.h"
+   8
+   9  static FILE *DB_open(const char *path, const char *mode)
+   10  {
+   11      return fopen(path, mode);
+   12  }
+   13
+   14
+   15  static void DB_close(FILE *db)
+   16  {
+   17      fclose(db);
+   18  }
+   19
+   20
+   21  static bstring DB_load()
+   22  {
+   23      FILE *db = NULL;
+   24      bstring data = NULL;
+   25
+   26      db = DB_open(DB_FILE, "r");
+   27      check(db, "Failed to open database: %s", DB_FILE);
+   28
+   29      data = bread((bNread)fread, db);
+   30      check(data, "Failed to read from db file: %s", DB_FILE);
+   31
+   32      DB_close(db);
+   33      return data;
+   34
+   35  error:
+   36      if(db) DB_close(db);
+   37      if(data) bdestroy(data);
+   38      return NULL;
+   39  }
+   40
+   41
+   42  int DB_update(const char *url)
+   43  {
+   44      if(DB_find(url)) {
+   45          log_info("Already recorded as installed: %s", url);
+   46      }
+   47
+   48      FILE *db = DB_open(DB_FILE, "a+");
+   49      check(db, "Failed to open DB file: %s", DB_FILE);
+   50
+   51      bstring line = bfromcstr(url);
+   52      bconchar(line, '\n');
+   53      int rc = fwrite(line->data, blength(line), 1, db);
+   54      check(rc == 1, "Failed to append to the db.");
+   55
+   56      return 0;
+   57  error:
+   58      if(db) DB_close(db);
+   59      return -1;
+   60  }
+   61
+   62
+   63  int DB_find(const char *url)
+   64  {
+   65      bstring data = NULL;
+   66      bstring line = bfromcstr(url);
+   67      int res = -1;
+   68
+   69      data = DB_load(DB_FILE);
+   70      check(data, "Failed to load: %s", DB_FILE);
+   71
+   72      if(binstr(data, 0, line) == BSTR_ERR) {
+   73          res = 0;
+   74      } else {
+   75          res = 1;
+   76      }
+   77
+   78  error: // fallthrough
+   79      if(data) bdestroy(data);
+   80      if(line) bdestroy(line);
+   81
+   82      return res;
+   83  }
+   84
+   85
+   86  int DB_init()
+   87  {
+   88      apr_pool_t *p = NULL;
+   89      apr_pool_initialize();
+   90      apr_pool_create(&p, NULL);
+   91
+   92      if(access(DB_DIR, W_OK | X_OK) == -1) {
+   93          apr_status_t rc = apr_dir_make_recursive(DB_DIR,
+   94                  APR_UREAD | APR_UWRITE | APR_UEXECUTE |
+   95                  APR_GREAD | APR_GWRITE | APR_GEXECUTE, p);
+   96          check(rc == APR_SUCCESS, "Failed to make database dir: %s",
+    DB_DIR);
+   97      }
+   98
+   99      if(access(DB_FILE, W_OK) == -1) {
+   100          FILE *db = DB_open(DB_FILE, "w");
+   101          check(db, "Cannot open database: %s", DB_FILE);
+   102          DB_close(db);
+   103      }
+   104
+   105      apr_pool_destroy(p);
+   106      return 0;
+   107
+   108  error:
+   109      apr_pool_destroy(p);
+   110      return -1;
+   111  }
+   112
+   113
+   114  int DB_list()
+   115  {
+   116      bstring data = DB_load(DB_FILE);
+   117      check(data, "Failed to read load: %s", DB_FILE);
+   118
+   119      printf("%s", bdata(data));
+   120      bdestroy(data);
+   121      return 0;
+   122
+   123  error:
+   124      return -1;
+   125  }
+     __________________________________________________________________
+
+Challenge 1: Code Review
+
+   Before continuing, read every line of these files carefully and confirm
+   that you have them entered in exactly. Read them line-by-line backwards
+   to practice that. Also trace each function call and make sure you are
+   using check to validate the return codes. Finally, look up every
+   function that you don't recognize either on the APR web site
+   documentation, or in the bstrlib.h and bstrlib.c source.
+
+27.4.2 The Shell Functions
+
+   A key design decision for devpkg is to do most of the work using
+   external tools like curl, tar, and git. We could find libraries to do
+   all of this internally, but it's pointless if we just need the base
+   features of these programs. There is no shame in running another
+   command in Unix.
+
+   To do this I'm going to use the apr_thread_proc.h functions to run
+   programs, but I also want to make a simple kind of "template" system.
+   I'll use a struct Shell that holds all the information needed to run a
+   program, but has "holes" in the arguments list where I can replace them
+   with values.
+
+   Look at the shell.h file to see the structure and the commands I'll
+   use. You can see I'm using extern to indicate that other .c files can
+   access variables I'm defining in shell.c.
+     __________________________________________________________________
+
+   Source 72: shell.h
+   1  #ifndef _shell_h
+   2  #define _shell_h
+   3
+   4  #define MAX_COMMAND_ARGS 100
+   5
+   6  #include <apr_thread_proc.h>
+   7
+   8  typedef struct Shell {
+   9      const char *dir;
+   10      const char *exe;
+   11
+   12      apr_procattr_t *attr;
+   13      apr_proc_t proc;
+   14      apr_exit_why_e exit_why;
+   15      int exit_code;
+   16
+   17      const char *args[MAX_COMMAND_ARGS];
+   18  } Shell;
+   19
+   20  int Shell_run(apr_pool_t *p, Shell *cmd);
+   21  int Shell_exec(Shell cmd, ...);
+   22
+   23  extern Shell CLEANUP_SH;
+   24  extern Shell GIT_SH;
+   25  extern Shell TAR_SH;
+   26  extern Shell CURL_SH;
+   27  extern Shell CONFIGURE_SH;
+   28  extern Shell MAKE_SH;
+   29  extern Shell INSTALL_SH;
+   30
+   31  #endif
+     __________________________________________________________________
+
+   Make sure you've created shell.h exactly, and that you've got the same
+   names and number of extern Shell variables. Those are used by the
+   Shell_run and Shell_exec functions to run commands. I define these two
+   functions, and create the real variables in shell.c.
+     __________________________________________________________________
+
+   Source 73: shell.c
+   1  #include "shell.h"
+   2  #include "dbg.h"
+   3  #include <stdarg.h>
+   4
+   5  int Shell_exec(Shell template, ...)
+   6  {
+   7      apr_pool_t *p = NULL;
+   8      int rc = -1;
+   9      apr_status_t rv = APR_SUCCESS;
+   10      va_list argp;
+   11      const char *key = NULL;
+   12      const char *arg = NULL;
+   13      int i = 0;
+   14
+   15      rv = apr_pool_create(&p, NULL);
+   16      check(rv == APR_SUCCESS, "Failed to create pool.");
+   17
+   18      va_start(argp, template);
+   19
+   20      for(key = va_arg(argp, const char *);
+   21          key != NULL;
+   22          key = va_arg(argp, const char *))
+   23      {
+   24          arg = va_arg(argp, const char *);
+   25
+   26          for(i = 0; template.args[i] != NULL; i++) {
+   27              if(strcmp(template.args[i], key) == 0) {
+   28                  template.args[i] = arg;
+   29                  break; // found it
+   30              }
+   31          }
+   32      }
+   33
+   34      rc = Shell_run(p, &template);
+   35      apr_pool_destroy(p);
+   36      va_end(argp);
+   37      return rc;
+   38  error:
+   39      if(p) {
+   40          apr_pool_destroy(p);
+   41      }
+   42      return rc;
+   43  }
+   44
+   45  int Shell_run(apr_pool_t *p, Shell *cmd)
+   46  {
+   47      apr_procattr_t *attr;
+   48      apr_status_t rv;
+   49      apr_proc_t newproc;
+   50
+   51      rv = apr_procattr_create(&attr, p);
+   52      check(rv == APR_SUCCESS, "Failed to create proc attr.");
+   53
+   54      rv = apr_procattr_io_set(attr, APR_NO_PIPE, APR_NO_PIPE,
+   55              APR_NO_PIPE);
+   56      check(rv == APR_SUCCESS, "Failed to set IO of command.");
+   57
+   58      rv = apr_procattr_dir_set(attr, cmd->dir);
+   59      check(rv == APR_SUCCESS, "Failed to set root to %s", cmd->dir);
+   60
+   61      rv = apr_procattr_cmdtype_set(attr, APR_PROGRAM_PATH);
+   62      check(rv == APR_SUCCESS, "Failed to set cmd type.");
+   63
+   64      rv = apr_proc_create(&newproc, cmd->exe, cmd->args, NULL, attr,
+    p);
+   65      check(rv == APR_SUCCESS, "Failed to run command.");
+   66
+   67      rv = apr_proc_wait(&newproc, &cmd->exit_code, &cmd->exit_why, A
+   PR_WAIT);
+   68      check(rv == APR_CHILD_DONE, "Failed to wait.");
+   69
+   70      check(cmd->exit_code == 0, "%s exited badly.", cmd->exe);
+   71      check(cmd->exit_why == APR_PROC_EXIT, "%s was killed or crashed
+   ", cmd->exe);
+   72
+   73      return 0;
+   74
+   75  error:
+   76      return -1;
+   77  }
+   78
+   79  Shell CLEANUP_SH = {
+   80      .exe = "rm",
+   81      .dir = "/tmp",
+   82      .args = {"rm", "-rf", "/tmp/pkg-build", "/tmp/pkg-src.tar.gz",
+   83          "/tmp/pkg-src.tar.bz2", "/tmp/DEPENDS", NULL}
+   84  };
+   85
+   86  Shell GIT_SH = {
+   87      .dir = "/tmp",
+   88      .exe = "git",
+   89      .args = {"git", "clone", "URL", "pkg-build", NULL}
+   90  };
+   91
+   92  Shell TAR_SH = {
+   93      .dir = "/tmp/pkg-build",
+   94      .exe = "tar",
+   95      .args = {"tar", "-xzf", "FILE", "--strip-components", "1", NULL
+   }
+   96  };
+   97
+   98  Shell CURL_SH = {
+   99      .dir = "/tmp",
+   100      .exe = "curl",
+   101      .args = {"curl", "-L", "-o", "TARGET", "URL", NULL}
+   102  };
+   103
+   104  Shell CONFIGURE_SH = {
+   105      .exe = "./configure",
+   106      .dir = "/tmp/pkg-build",
+   107      .args = {"configure", "OPTS", NULL},
+   108  };
+   109
+   110  Shell MAKE_SH = {
+   111      .exe = "make",
+   112      .dir = "/tmp/pkg-build",
+   113      .args = {"make", "OPTS", NULL}
+   114  };
+   115
+   116  Shell INSTALL_SH = {
+   117      .exe = "sudo",
+   118      .dir = "/tmp/pkg-build",
+   119      .args = {"sudo", "make", "TARGET", NULL}
+   120  };
+     __________________________________________________________________
+
+   Read the shell.c from the bottom to the top (which is a common C source
+   layout) and you see I've created the actual Shell variables that you
+   indicated were extern in shell.h. They live here, but are available to
+   the rest of the program. This is how you make global variables that
+   live in one .o file but are used everywhere. You shouldn't make many of
+   these, but they are handy for things like this.
+
+   Continuing up the file we get to the Shell_run function, which is a
+   "base" function that just runs a command based on what's in a Shell
+   struct. It uses many of the functions defined in apr_thread_proc.h so
+   go look up each one to see how it works. This seems like a lot of work
+   compared to just using the system function call, but this also gives
+   you more control over the other program's execution. For example, in
+   our Shell struct we have a .dir attribute which forces the program to
+   be in a specific directory before running.
+
+   Finally, I have the Shell_exec function, which is a "variable
+   arguments" function. You've seen this before, but make sure you grasp
+   the stdarg.h functions and how to write one of these. In the challenge
+   for this section you are going to analyze this function.
+
+Challenge 2: Analyze Shell_exec
+
+   Challenge for these files (in addition to a full code review just like
+   you did in Challenge 1) is to fully analyze Shell_exec and break down
+   exactly how it works. You should be able to understand each line, how
+   the two for-loops work, and how arguments are being replaced.
+
+   Once you have it analyzed, add a field to struct Shell that gives the
+   number of variable args that must be replaced. Update all the commands
+   to have the right count of args, and then have an error check that
+   confirms these args have been replaced and error exit.
+
+27.4.3 The Command Functions
+
+   Now you get to make the actual commands that do the work. These
+   commands will use functions from APR, db.h and shell.h to do the real
+   work of downloading and building software you want it to build. This is
+   the most complex set of files, so do them carefully. As before, you
+   start by making the commands.h file, then implementing its functions in
+   the commands.c file.
+     __________________________________________________________________
+
+   Source 74: commands.h
+   1  #ifndef _commands_h
+   2  #define _commands_h
+   3
+   4  #include <apr_pools.h>
+   5
+   6  #define DEPENDS_PATH "/tmp/DEPENDS"
+   7  #define TAR_GZ_SRC "/tmp/pkg-src.tar.gz"
+   8  #define TAR_BZ2_SRC "/tmp/pkg-src.tar.bz2"
+   9  #define BUILD_DIR "/tmp/pkg-build"
+   10  #define GIT_PAT "*.git"
+   11  #define DEPEND_PAT "*DEPENDS"
+   12  #define TAR_GZ_PAT "*.tar.gz"
+   13  #define TAR_BZ2_PAT "*.tar.bz2"
+   14  #define CONFIG_SCRIPT "/tmp/pkg-build/configure"
+   15
+   16  enum CommandType {
+   17      COMMAND_NONE, COMMAND_INSTALL, COMMAND_LIST, COMMAND_FETCH,
+   18      COMMAND_INIT, COMMAND_BUILD
+   19  };
+   20
+   21
+   22  int Command_fetch(apr_pool_t *p, const char *url, int fetch_only);
+   23
+   24  int Command_install(apr_pool_t *p, const char *url, const char *con
+   figure_opts,
+   25          const char *make_opts, const char *install_opts);
+   26
+   27  int Command_depends(apr_pool_t *p, const char *path);
+   28
+   29  int Command_build(apr_pool_t *p, const char *url, const char *confi
+   gure_opts,
+   30          const char *make_opts, const char *install_opts);
+   31
+   32  #endif
+     __________________________________________________________________
+
+   There's not much in commands.h that you haven't seen already. You
+   should see that there's some defines for strings that are used
+   everywhere. The real interesting code is in commands.c.
+     __________________________________________________________________
+
+   Source 75: commands.c
+   1  #include <apr_uri.h>
+   2  #include <apr_fnmatch.h>
+   3  #include <unistd.h>
+   4
+   5  #include "commands.h"
+   6  #include "dbg.h"
+   7  #include "bstrlib.h"
+   8  #include "db.h"
+   9  #include "shell.h"
+   10
+   11
+   12  int Command_depends(apr_pool_t *p, const char *path)
+   13  {
+   14      FILE *in = NULL;
+   15      bstring line = NULL;
+   16
+   17      in = fopen(path, "r");
+   18      check(in != NULL, "Failed to open downloaded depends: %s", path
+   );
+   19
+   20      for(line = bgets((bNgetc)fgetc, in, '\n'); line != NULL;
+   21              line = bgets((bNgetc)fgetc, in, '\n'))
+   22      {
+   23          btrimws(line);
+   24          log_info("Processing depends: %s", bdata(line));
+   25          int rc = Command_install(p, bdata(line), NULL, NULL, NULL);
+   26          check(rc == 0, "Failed to install: %s", bdata(line));
+   27          bdestroy(line);
+   28      }
+   29
+   30      fclose(in);
+   31      return 0;
+   32
+   33  error:
+   34      if(line) bdestroy(line);
+   35      if(in) fclose(in);
+   36      return -1;
+   37  }
+   38
+   39  int Command_fetch(apr_pool_t *p, const char *url, int fetch_only)
+   40  {
+   41      apr_uri_t info = {.port = 0};
+   42      int rc = 0;
+   43      const char *depends_file = NULL;
+   44      apr_status_t rv = apr_uri_parse(p, url, &info);
+   45
+   46      check(rv == APR_SUCCESS, "Failed to parse URL: %s", url);
+   47
+   48      if(apr_fnmatch(GIT_PAT, info.path, 0) == APR_SUCCESS) {
+   49          rc = Shell_exec(GIT_SH, "URL", url, NULL);
+   50          check(rc == 0, "git failed.");
+   51      } else if(apr_fnmatch(DEPEND_PAT, info.path, 0) == APR_SUCCESS)
+    {
+   52          check(!fetch_only, "No point in fetching a DEPENDS file.");
+   53
+   54          if(info.scheme) {
+   55              depends_file = DEPENDS_PATH;
+   56              rc = Shell_exec(CURL_SH, "URL", url, "TARGET", depends_
+   file, NULL);
+   57              check(rc == 0, "Curl failed.");
+   58          } else {
+   59              depends_file = info.path;
+   60          }
+   61
+   62          // recursively process the devpkg list
+   63          log_info("Building according to DEPENDS: %s", url);
+   64          rv = Command_depends(p, depends_file);
+   65          check(rv == 0, "Failed to process the DEPENDS: %s", url);
+   66
+   67          // this indicates that nothing needs to be done
+   68          return 0;
+   69
+   70      } else if(apr_fnmatch(TAR_GZ_PAT, info.path, 0) == APR_SUCCESS)
+    {
+   71          if(info.scheme) {
+   72              rc = Shell_exec(CURL_SH,
+   73                      "URL", url,
+   74                      "TARGET", TAR_GZ_SRC, NULL);
+   75              check(rc == 0, "Failed to curl source: %s", url);
+   76          }
+   77
+   78          rv = apr_dir_make_recursive(BUILD_DIR,
+   79                  APR_UREAD | APR_UWRITE | APR_UEXECUTE, p);
+   80          check(rv == APR_SUCCESS, "Failed to make directory %s", BUI
+   LD_DIR);
+   81
+   82          rc = Shell_exec(TAR_SH, "FILE", TAR_GZ_SRC, NULL);
+   83          check(rc == 0, "Failed to untar %s", TAR_GZ_SRC);
+   84      } else if(apr_fnmatch(TAR_BZ2_PAT, info.path, 0) == APR_SUCCESS
+   ) {
+   85          if(info.scheme) {
+   86              rc = Shell_exec(CURL_SH, "URL", url, "TARGET", TAR_BZ2_
+   SRC, NULL);
+   87              check(rc == 0, "Curl failed.");
+   88          }
+   89
+   90          apr_status_t rc = apr_dir_make_recursive(BUILD_DIR,
+   91                  APR_UREAD | APR_UWRITE | APR_UEXECUTE, p);
+   92
+   93          check(rc == 0, "Failed to make directory %s", BUILD_DIR);
+   94          rc = Shell_exec(TAR_SH, "FILE", TAR_BZ2_SRC, NULL);
+   95          check(rc == 0, "Failed to untar %s", TAR_BZ2_SRC);
+   96      } else {
+   97          sentinel("Don't now how to handle %s", url);
+   98      }
+   99
+   100      // indicates that an install needs to actually run
+   101      return 1;
+   102  error:
+   103      return -1;
+   104  }
+   105
+   106  int Command_build(apr_pool_t *p, const char *url, const char *conf
+   igure_opts,
+   107          const char *make_opts, const char *install_opts)
+   108  {
+   109      int rc = 0;
+   110
+   111      check(access(BUILD_DIR, X_OK | R_OK | W_OK) == 0,
+   112              "Build directory doesn't exist: %s", BUILD_DIR);
+   113
+   114      // actually do an install
+   115      if(access(CONFIG_SCRIPT, X_OK) == 0) {
+   116          log_info("Has a configure script, running it.");
+   117          rc = Shell_exec(CONFIGURE_SH, "OPTS", configure_opts, NULL
+   );
+   118          check(rc == 0, "Failed to configure.");
+   119      }
+   120
+   121      rc = Shell_exec(MAKE_SH, "OPTS", make_opts, NULL);
+   122      check(rc == 0, "Failed to build.");
+   123
+   124      rc = Shell_exec(INSTALL_SH,
+   125              "TARGET", install_opts ? install_opts : "install",
+   126              NULL);
+   127      check(rc == 0, "Failed to install.");
+   128
+   129      rc = Shell_exec(CLEANUP_SH, NULL);
+   130      check(rc == 0, "Failed to cleanup after build.");
+   131
+   132      rc = DB_update(url);
+   133      check(rc == 0, "Failed to add this package to the database.");
+   134
+   135      return 0;
+   136
+   137  error:
+   138      return -1;
+   139  }
+   140
+   141  int Command_install(apr_pool_t *p, const char *url, const char *co
+   nfigure_opts,
+   142          const char *make_opts, const char *install_opts)
+   143  {
+   144      int rc = 0;
+   145      check(Shell_exec(CLEANUP_SH, NULL) == 0, "Failed to cleanup be
+   fore building.");
+   146
+   147      rc = DB_find(url);
+   148      check(rc != -1, "Error checking the install database.");
+   149
+   150      if(rc == 1) {
+   151          log_info("Package %s already installed.", url);
+   152          return 0;
+   153      }
+   154
+   155      rc = Command_fetch(p, url, 0);
+   156
+   157      if(rc == 1) {
+   158          rc = Command_build(p, url, configure_opts, make_opts, inst
+   all_opts);
+   159          check(rc == 0, "Failed to build: %s", url);
+   160      } else if(rc == 0) {
+   161          // no install needed
+   162          log_info("Depends successfully installed: %s", url);
+   163      } else {
+   164          // had an error
+   165          sentinel("Install failed: %s", url);
+   166      }
+   167
+   168      Shell_exec(CLEANUP_SH, NULL);
+   169      return 0;
+   170
+   171  error:
+   172      Shell_exec(CLEANUP_SH, NULL);
+   173      return -1;
+   174  }
+     __________________________________________________________________
+
+   After you have this entered in and compiling, you can analyze it. If
+   you've don the challenges until now, you should see how the shell.c
+   functions are being used to run shells and how the arguments are being
+   replaced. If not then go back and make sure you truly understand how
+   Shell_exec actually works.
+
+Challenge 3: Critique My Design
+
+   As before, do a complete review of this code and make sure it's exactly
+   the same. Then go through each function and make sure you know how it
+   works and what it's doing. You also should trace how each function
+   calls the other functions you've written in this file and other files.
+   Finally, confirm that you understand all the functions you're calling
+   from APR here.
+
+   Once you have the file correct and analyzed, go back through and assume
+   I'm an idiot. Then, criticize the design I have to see how you can
+   improve it if you can. Don't actually change the code, just create a
+   little notes.txt file and write down your thoughts and what you might
+   change.
+
+27.4.4 The devpkg Main Function
+
+   The last and most important file, but probably the simplest, is
+   devpkg.c where the main function lives. There's no .h file for this,
+   since this one includes all the others. Instead this just creates the
+   executable devpkg when combined with the other .o files from our
+   Makefile. Enter in the code for this file, and make sure it's correct.
+     __________________________________________________________________
+
+   Source 76: devpkg.c
+   1  #include <stdio.h>
+   2  #include <apr_general.h>
+   3  #include <apr_getopt.h>
+   4  #include <apr_strings.h>
+   5  #include <apr_lib.h>
+   6
+   7  #include "dbg.h"
+   8  #include "db.h"
+   9  #include "commands.h"
+   10
+   11  int main(int argc, const char const *argv[])
+   12  {
+   13      apr_pool_t *p = NULL;
+   14      apr_pool_initialize();
+   15      apr_pool_create(&p, NULL);
+   16
+   17      apr_getopt_t *opt;
+   18      apr_status_t rv;
+   19
+   20      char ch = '\0';
+   21      const char *optarg = NULL;
+   22      const char *config_opts = NULL;
+   23      const char *install_opts = NULL;
+   24      const char *make_opts = NULL;
+   25      const char *url = NULL;
+   26      enum CommandType request = COMMAND_NONE;
+   27
+   28
+   29      rv = apr_getopt_init(&opt, p, argc, argv);
+   30
+   31      while(apr_getopt(opt, "I:Lc:m:i:d:SF:B:", &ch, &optarg) == APR_
+   SUCCESS) {
+   32          switch (ch) {
+   33              case 'I':
+   34                  request = COMMAND_INSTALL;
+   35                  url = optarg;
+   36                  break;
+   37
+   38              case 'L':
+   39                  request = COMMAND_LIST;
+   40                  break;
+   41
+   42              case 'c':
+   43                  config_opts = optarg;
+   44                  break;
+   45
+   46              case 'm':
+   47                  make_opts = optarg;
+   48                  break;
+   49
+   50              case 'i':
+   51                  install_opts = optarg;
+   52                  break;
+   53
+   54              case 'S':
+   55                  request = COMMAND_INIT;
+   56                  break;
+   57
+   58              case 'F':
+   59                  request = COMMAND_FETCH;
+   60                  url = optarg;
+   61                  break;
+   62
+   63              case 'B':
+   64                  request = COMMAND_BUILD;
+   65                  url = optarg;
+   66                  break;
+   67          }
+   68      }
+   69
+   70      switch(request) {
+   71          case COMMAND_INSTALL:
+   72              check(url, "You must at least give a URL.");
+   73              Command_install(p, url, config_opts, make_opts, install
+   _opts);
+   74              break;
+   75
+   76          case COMMAND_LIST:
+   77              DB_list();
+   78              break;
+   79
+   80          case COMMAND_FETCH:
+   81              check(url != NULL, "You must give a URL.");
+   82              Command_fetch(p, url, 1);
+   83              log_info("Downloaded to %s and in /tmp/", BUILD_DIR);
+   84              break;
+   85
+   86          case COMMAND_BUILD:
+   87              check(url, "You must at least give a URL.");
+   88              Command_build(p, url, config_opts, make_opts, install_o
+   pts);
+   89              break;
+   90
+   91          case COMMAND_INIT:
+   92              rv = DB_init();
+   93              check(rv == 0, "Failed to make the database.");
+   94              break;
+   95
+   96          default:
+   97              sentinel("Invalid command given.");
+   98      }
+   99
+   100
+   101      return 0;
+   102
+   103  error:
+   104      return 1;
+   105  }
+     __________________________________________________________________
+
+Challenge 4: The README And Test Files
+
+   The challenge for this file is to understand how the arguments are
+   being processed, what the arguments are, and then create the README
+   file with instructions on how to use it. As you write the README, also
+   write a simple test.sh that runs ./devpkg to check that each command is
+   actually working against real live code. Use the set -e at the top of
+   your script so that it aborts on the first error.
+
+   Finally, run the program under valgrind and make sure it's all working
+   before moving on to the mid-term exam.
+
+27.5 The Mid-Term Exam
+
+   Your final challenge is the mid-term exam and it involves three things:
+
+    1. Compare your code to my code available online and starting with
+       100%, remove 1% for each line you got wrong.
+    2. Take your notes.txt on how you would improve the code and
+       functionality of devpkg and implement your improvements.
+    3. Write an alternative version of devpkg using your other favorite
+       language or the one you think can do this the best. Compare the
+       two, then improve your C version of devpkg based on what you've
+       learned.
+
+   To compare your code with mine, do the following:
+   1cd ..  # get one directory above your current one
+   2git clone git://gitorious.org/devpkg/devpkg.git devpkgzed
+   3diff -r devpkg devpkgzed
+
+   This will clone my version of devpkg into a directory devpkgzed and
+   then use the tool diff to compare what you've done to what I did. The
+   files you're working with in this book come directly from this project,
+   so if you get different lines then that's an error.
+
+   Keep in mind that there's no real pass or fail on this exercise, just a
+   way for you to challenge yourself to be as exact and meticulous as
+   possible.
+
+   [next] [prev] [prev-tail] [front] [up]
+     __________________________________________________________________
+
+   Please enable JavaScript to view the comments powered by Disqus.
+
+Take An Online Video Course
+
+   You can sign up for a video course at:
+
+   http://www.udemy.com/learn-c-the-hard-way/
+
+   This course is currently being built at the same time that the book is
+   being built, but if you sign up now then you get early access to both
+   the videos and PDF of the book.
+
+Related Books
+
+   You might want to check out these other books in the series:
+    1. Learn Ruby The Hard Way
+    2. Learn Regex The Hard Way
+    3. Learn SQL The Hard Way
+    4. Learn C The Hard Way
+    5. Learn Python The Hard Way
+
+   I'll be referencing other books shortly.
+
+   Copyright 2011 Zed A. Shaw. All Rights Reserved.

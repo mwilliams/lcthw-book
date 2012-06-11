@@ -1,0 +1,264 @@
+
+   Learn C The Hard Way A Learn Code The Hard Way Book
+     * Book
+     * Comments
+     * Video Courses
+     * Related Books
+
+   [next] [prev] [prev-tail] [tail] [up]
+
+Chapter 48
+Exercise 47: A Fast URL Router
+
+   I'm going to now show you how I use the TSTree to do fast URL routing
+   in web servers I've written. This works for simple URL routing you
+   might use at the edge of an application, not really for the more
+   complex (and sometimes unecessary) routing found in many web
+   application frameworks.
+
+   To play with routing I'm going to make a little command line tool I'm
+   calling urlor that reads a simple file of routes, and then prompts the
+   user to enter in URLs to look up.
+     __________________________________________________________________
+
+   Source 154: bin/urlor.c
+   1  #include <lcthw/tstree.h>
+   2  #include <lcthw/bstrlib.h>
+   3
+   4  TSTree *add_route_data(TSTree *routes, bstring line)
+   5  {
+   6      struct bstrList *data = bsplit(line, ' ');
+   7      check(data->qty == 2, "Line '%s' does not have 2 columns",
+   8              bdata(line));
+   9
+   10      routes = TSTree_insert(routes,
+   11              bdata(data->entry[0]), blength(data->entry[0]),
+   12              bstrcpy(data->entry[1]));
+   13
+   14      bstrListDestroy(data);
+   15
+   16      return routes;
+   17
+   18  error:
+   19      return NULL;
+   20  }
+   21
+   22  TSTree *load_routes(const char *file)
+   23  {
+   24      TSTree *routes = NULL;
+   25      bstring line = NULL;
+   26      FILE *routes_map = NULL;
+   27
+   28      routes_map = fopen(file, "r");
+   29      check(routes_map != NULL, "Failed to open routes: %s", file);
+   30
+   31      while((line = bgets((bNgetc)fgetc, routes_map, '\n')) != NULL)
+   {
+   32          check(btrimws(line) == BSTR_OK, "Failed to trim line.");
+   33          routes = add_route_data(routes, line);
+   34          check(routes != NULL, "Failed to add route.");
+   35          bdestroy(line);
+   36      }
+   37
+   38      fclose(routes_map);
+   39      return routes;
+   40
+   41  error:
+   42      if(routes_map) fclose(routes_map);
+   43      if(line) bdestroy(line);
+   44
+   45      return NULL;
+   46  }
+   47
+   48  bstring match_url(TSTree *routes, bstring url)
+   49  {
+   50      bstring route = TSTree_search(routes, bdata(url), blength(url))
+   ;
+   51
+   52      if(route == NULL) {
+   53          printf("No exact match found, trying prefix.\n");
+   54          route = TSTree_search_prefix(routes, bdata(url), blength(ur
+   l));
+   55      }
+   56
+   57      return route;
+   58  }
+   59
+   60  bstring read_line(const char *prompt)
+   61  {
+   62      printf("%s", prompt);
+   63
+   64      bstring result = bgets((bNgetc)fgetc, stdin, '\n');
+   65      check_debug(result != NULL, "stdin closed.");
+   66
+   67      check(btrimws(result) == BSTR_OK, "Failed to trim.");
+   68
+   69      return result;
+   70
+   71  error:
+   72      return NULL;
+   73  }
+   74
+   75  void bdestroy_cb(void *value, void *ignored)
+   76  {
+   77      (void)ignored;
+   78      bdestroy((bstring)value);
+   79  }
+   80
+   81  void destroy_routes(TSTree *routes)
+   82  {
+   83      TSTree_traverse(routes, bdestroy_cb, NULL);
+   84      TSTree_destroy(routes);
+   85  }
+   86
+   87  int main(int argc, char *argv[])
+   88  {
+   89      bstring url = NULL;
+   90      bstring route = NULL;
+   91      check(argc == 2, "USAGE: urlor <urlfile>");
+   92
+   93      TSTree *routes = load_routes(argv[1]);
+   94      check(routes != NULL, "Your route file has an error.");
+   95
+   96      while(1) {
+   97          url = read_line("URL> ");
+   98          check_debug(url != NULL, "goodbye.");
+   99
+   100          route = match_url(routes, url);
+   101
+   102          if(route) {
+   103              printf("MATCH: %s == %s\n", bdata(url), bdata(route));
+   104          } else {
+   105              printf("FAIL: %s\n", bdata(url));
+   106          }
+   107
+   108          bdestroy(url);
+   109      }
+   110
+   111      destroy_routes(routes);
+   112      return 0;
+   113
+   114  error:
+   115      destroy_routes(routes);
+   116      return 1;
+   117  }
+     __________________________________________________________________
+
+   I'll then make a simple file with some fake routes to play with:
+     __________________________________________________________________
+
+   Source 155: urls.txt
+     / MainApp
+     /hello Hello
+     /hello/ Hello
+     /signup Signup
+     /logout Logout
+     /album/ Album
+     __________________________________________________________________
+
+48.1 What You Should See
+
+   Once you have urlor working and a routes file, you can try it out:
+     __________________________________________________________________
+
+   Source 156: Working With urlor
+   1  $ ./bin/urlor urls.txt
+   2  URL> /
+   3  MATCH: / == MainApp
+   4  URL> /hello
+   5  MATCH: /hello == Hello
+   6  URL> /hello/zed
+   7  No exact match found, trying prefix.
+   8  MATCH: /hello/zed == Hello
+   9  URL> /album
+   10  No exact match found, trying prefix.
+   11  MATCH: /album == Album
+   12  URL> /album/12345
+   13  No exact match found, trying prefix.
+   14  MATCH: /album/12345 == Album
+   15  URL> asdfasfdasfd
+   16  No exact match found, trying prefix.
+   17  FAIL: asdfasfdasfd
+   18  URL> /asdfasdfasf
+   19  No exact match found, trying prefix.
+   20  MATCH: /asdfasdfasf == MainApp
+   21  URL>
+   22  $
+     __________________________________________________________________
+
+   You can see that the routing system first tries an exact match, and
+   then if it can't find one it will give a prefix match. This is mostly
+   to try out the difference between the two. Depending on the semantics
+   of your URLs you may want to always match exactly, always to prefixes,
+   or do both and pick the "best" one.
+
+48.2 How To Improve It
+
+   URLs are weird because people want them to magically handle all of the
+   insane things their web applications do, even if that's not very
+   logical. In this simple demonstration of how to use the TSTree to do
+   routing, it has some flaws that people wouldn't be able to articulate.
+   For example, it will match /al to Album, which generall isn't what they
+   want. They want /album/* to match Album and /al to be a 404 error.
+
+   This isn't difficult to implement though, since you could change the
+   prefix algorithm to match any way you want. If you change the matching
+   algorithm to find all matching prefixes, and then pick the "best" one,
+   you'll be able to do it easily. In this case, /al could match MainApp
+   or Album. Take those results then do a little logic on which is "best".
+
+   Another thing you can do in a real routing system is use the TSTree to
+   finall possible matches, but that these matches are a small set of
+   patterns to check. In many web applications there's a list of regex
+   that have to be matched against URLs on each request. Running all the
+   regex can be time consuming, so you can use a TSTree to find all the
+   possible ones by their prefixes. Then you narrow the patterns to try
+   down to a few very quickly.
+
+   Using this method, your URLs will match exactly since you are actually
+   running real regex patterns, and they'll match much faster since you're
+   finding them by possible prefixes.
+
+   This kind of algorithm also works for anything else that needs to have
+   flexible user-visible routing mechanisms. Domain names, IP address,
+   registries and directories, files, or URLs.
+
+48.3 Extra Credit
+
+    1. Instead of just storing the string for the handler, create an
+       actual engine that uses an Handler struct to store the application.
+       The struct would store the URL it is attached to, the name, and
+       anything else you'd need to make an actual routing system.
+    2. Instead of mapping URLs to arbitrary names, map them to .so files
+       and use the dlopen system to load handlers on the fly and call
+       callbacks they contain. Put these callbacks in your Handler struct
+       and then you have yourself a fully dynamic callback handler system
+       in C.
+
+   [next] [prev] [prev-tail] [front] [up]
+     __________________________________________________________________
+
+   Please enable JavaScript to view the comments powered by Disqus.
+
+Take An Online Video Course
+
+   You can sign up for a video course at:
+
+   http://www.udemy.com/learn-c-the-hard-way/
+
+   This course is currently being built at the same time that the book is
+   being built, but if you sign up now then you get early access to both
+   the videos and PDF of the book.
+
+Related Books
+
+   You might want to check out these other books in the series:
+    1. Learn Ruby The Hard Way
+    2. Learn Regex The Hard Way
+    3. Learn SQL The Hard Way
+    4. Learn C The Hard Way
+    5. Learn Python The Hard Way
+
+   I'll be referencing other books shortly.
+
+   Copyright 2011 Zed A. Shaw. All Rights Reserved.

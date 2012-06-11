@@ -1,0 +1,485 @@
+
+   Learn C The Hard Way A Learn Code The Hard Way Book
+     * Book
+     * Comments
+     * Video Courses
+     * Related Books
+
+   [next] [prev] [prev-tail] [tail] [up]
+
+Chapter 18
+Exercise 17: Heap And Stack Memory Allocation
+
+   In this exercise you're going to make a big leap in difficulty and
+   create an entire small program to manage a database. This database
+   isn't very efficient and doesn't store very much, but it does
+   demonstrate most of what you've learned so far. It also introduces
+   memory allocation more formally and gets you started working with
+   files. We use some file I/O functions, but I won't be explaining them
+   too well so you can try to figure them out first.
+
+   As usual, type this whole program in and get it working, then we'll
+   discuss:
+     __________________________________________________________________
+
+   Source 43: ex17.c
+   1  #include <stdio.h>
+   2  #include <assert.h>
+   3  #include <stdlib.h>
+   4  #include <errno.h>
+   5  #include <string.h>
+   6
+   7  #define MAX_DATA 512
+   8  #define MAX_ROWS 100
+   9
+   10  struct Address {
+   11      int id;
+   12      int set;
+   13      char name[MAX_DATA];
+   14      char email[MAX_DATA];
+   15  };
+   16
+   17  struct Database {
+   18      struct Address rows[MAX_ROWS];
+   19  };
+   20
+   21  struct Connection {
+   22      FILE *file;
+   23      struct Database *db;
+   24  };
+   25
+   26  void die(const char *message)
+   27  {
+   28      if(errno) {
+   29          perror(message);
+   30      } else {
+   31          printf("ERROR: %s\n", message);
+   32      }
+   33
+   34      exit(1);
+   35  }
+   36
+   37  void Address_print(struct Address *addr)
+   38  {
+   39      printf("%d %s %s\n",
+   40              addr->id, addr->name, addr->email);
+   41  }
+   42
+   43  void Database_load(struct Connection *conn)
+   44  {
+   45      int rc = fread(conn->db, sizeof(struct Database), 1, conn->file
+   );
+   46      if(rc != 1) die("Failed to load database.");
+   47  }
+   48
+   49  struct Connection* Database_open(const char *filename, char mode)
+   50  {
+   51      struct Connection *conn = malloc(sizeof(struct Connection));
+   52      if(!conn) die("Memory error");
+   53
+   54      conn->db = malloc(sizeof(struct Database));
+   55      if(!conn->db) die("Memory error");
+   56
+   57      if(mode == 'c') {
+   58          conn->file = fopen(filename, "w");
+   59      } else {
+   60          conn->file = fopen(filename, "r+");
+   61
+   62          if(conn->file) {
+   63              Database_load(conn);
+   64          }
+   65      }
+   66
+   67      if(!conn->file) die("Failed to open the file");
+   68
+   69      return conn;
+   70  }
+   71
+   72  void Database_close(struct Connection *conn)
+   73  {
+   74      if(conn) {
+   75          if(conn->file) fclose(conn->file);
+   76          if(conn->db) free(conn->db);
+   77          free(conn);
+   78      }
+   79  }
+   80
+   81  void Database_write(struct Connection *conn)
+   82  {
+   83      rewind(conn->file);
+   84
+   85      int rc = fwrite(conn->db, sizeof(struct Database), 1, conn->fil
+   e);
+   86      if(rc != 1) die("Failed to write database.");
+   87
+   88      rc = fflush(conn->file);
+   89      if(rc == -1) die("Cannot flush database.");
+   90  }
+   91
+   92  void Database_create(struct Connection *conn)
+   93  {
+   94      int i = 0;
+   95
+   96      for(i = 0; i < MAX_ROWS; i++) {
+   97          // make a prototype to initialize it
+   98          struct Address addr = {.id = i, .set = 0};
+   99          // then just assign it
+   100          conn->db->rows[i] = addr;
+   101      }
+   102  }
+   103
+   104  void Database_set(struct Connection *conn, int id, const char *nam
+   e, const char *email)
+   105  {
+   106      struct Address *addr = &conn->db->rows[id];
+   107      if(addr->set) die("Already set, delete it first");
+   108
+   109      addr->set = 1;
+   110      // WARNING: bug, read the "How To Break It" and fix this
+   111      char *res = strncpy(addr->name, name, MAX_DATA);
+   112      // demonstrate the strncpy bug
+   113      if(!res) die("Name copy failed");
+   114
+   115      res = strncpy(addr->email, email, MAX_DATA);
+   116      if(!res) die("Email copy failed");
+   117  }
+   118
+   119  void Database_get(struct Connection *conn, int id)
+   120  {
+   121      struct Address *addr = &conn->db->rows[id];
+   122
+   123      if(addr->set) {
+   124          Address_print(addr);
+   125      } else {
+   126          die("ID is not set");
+   127      }
+   128  }
+   129
+   130  void Database_delete(struct Connection *conn, int id)
+   131  {
+   132      struct Address addr = {.id = id, .set = 0};
+   133      conn->db->rows[id] = addr;
+   134  }
+   135
+   136  void Database_list(struct Connection *conn)
+   137  {
+   138      int i = 0;
+   139      struct Database *db = conn->db;
+   140
+   141      for(i = 0; i < MAX_ROWS; i++) {
+   142          struct Address *cur = &db->rows[i];
+   143
+   144          if(cur->set) {
+   145              Address_print(cur);
+   146          }
+   147      }
+   148  }
+   149
+   150  int main(int argc, char *argv[])
+   151  {
+   152      if(argc < 3) die("USAGE: ex17 <dbfile> <action> [action params
+   ]");
+   153
+   154      char *filename = argv[1];
+   155      char action = argv[2][0];
+   156      struct Connection *conn = Database_open(filename, action);
+   157      int id = 0;
+   158
+   159      if(argc > 3) id = atoi(argv[3]);
+   160      if(id >= MAX_ROWS) die("There's not that many records.");
+   161
+   162      switch(action) {
+   163          case 'c':
+   164              Database_create(conn);
+   165              Database_write(conn);
+   166              break;
+   167
+   168          case 'g':
+   169              if(argc != 4) die("Need an id to get");
+   170
+   171              Database_get(conn, id);
+   172              break;
+   173
+   174          case 's':
+   175              if(argc != 6) die("Need id, name, email to set");
+   176
+   177              Database_set(conn, id, argv[4], argv[5]);
+   178              Database_write(conn);
+   179              break;
+   180
+   181          case 'd':
+   182              if(argc != 4) die("Need id to delete");
+   183
+   184              Database_delete(conn, id);
+   185              Database_write(conn);
+   186              break;
+   187
+   188          case 'l':
+   189              Database_list(conn);
+   190              break;
+   191          default:
+   192              die("Invalid action, only: c=create, g=get, s=set, d=d
+   el, l=list");
+   193      }
+   194
+   195      Database_close(conn);
+   196
+   197      return 0;
+   198  }
+     __________________________________________________________________
+
+   In this program I am using a set of structures to create a simple
+   database for an address book. In it I'm using some things you've never
+   seen, so you should go through it line-by-line, explain what each line
+   does, and look up any functions you do not recognize. There are few key
+   things I'm doing that you should pay attention to as well:
+
+   #define for constants
+          I use another part of the "C Pre-Processor" to create constant
+          settings of MAX_DATA and MAX_ROWS. I'll cover more of what the
+          CPP does, but this is a way to create a constant that will work
+          reliably. There's other ways but they don't apply in certain
+          situations.
+
+   Fixed Sized Structs
+          The Address struct then uses these constants to create a piece
+          of data that is fixed in size making it less efficient, but
+          easier to store and read. The Database struct is then also fixed
+          size because it is a fixed length array of Address structs. That
+          lets you write the whole thing to disk in one move later on.
+
+   die function to abort with an error
+          In a small program like this you can make a single function that
+          kills the program with an error if there's anything wrong. I
+          call this die, and it's used after any failed function calls or
+          bad inputs to exit with an error using exit.
+
+   errno and perror() for error reporting
+          When you have an error return from a function, it will usually
+          set an "external" variable called errno to say exactly what
+          error happened. These are just numbers, so you can use perror to
+          "print the error message".
+
+   FILE functions
+          I'm using all new functions like fopen, fread, fclose, and
+          rewind to work with files. Each of these functions works on a
+          FILE struct that's just like your structs, but it's defined by
+          the C standard library.
+
+   nested struct pointers
+          There's use of nested structures and getting the address of
+          array elements that you should study. Specifically code like
+          &conn->db->rows[i] which reads "get the i element of rows, which
+          is in db, which is in conn, then get the address of (&) it".
+
+   copying struct prototypes
+          best shown in Database_delete, you can see I'm using a temporary
+          local Address, initializing its id and set fields, and then
+          simply copying it into the rows array by assigning it to the
+          element I want. This trick makes sure that all fields but set
+          and id are initialized to 0s and is actually easier to write.
+          Incidentally, you shouldn't be using memcpy to do these kinds of
+          struct copying operations. Modern C allows you to simply assign
+          one struct to another and it'll handle the copying for you.
+
+   processing complex arguments
+          I'm doing some more complex argument parsing, but this isn't
+          really the best way to do it. We'll get into better option
+          parsing later in the book.
+
+   converting strings to ints
+          I use the atoi function to take the string for the id on the
+          command line and convert it to the int id variable. Read up on
+          this function and similar ones.
+
+   allocating large data on the "heap"
+          The whole point of this program is that I'm using malloc to ask
+          the OS for a large amount of memory to work with when I create
+          the Database. I cover this in more detail below.
+
+   NULL is 0 so boolean works
+          In many of the checks I'm testing that a pointer is not NULL by
+          simply doing if(!ptr) die("fail!") this is valid because NULL
+          will evaluate to false. You could be explicit and say
+          if(ptr == NULL) die("fail!") as well.^1
+
+18.1 What You Should See
+
+   You should spend as much time as you can testing that it works, and
+   running it with Valgrind to confirm you've got all the memory usage
+   right. Here's a session of me testing it normally and then using
+   Valgrind to check the operations:
+     __________________________________________________________________
+
+   Source 44: ex17 output
+   1$ make ex17
+   2cc -Wall -g    ex17.c   -o ex17
+   3$ ./ex17 db.dat c
+   4$ ./ex17 db.dat s 1 zed zed@zedshaw.com
+   5$ ./ex17 db.dat s 2 frank frank@zedshaw.com
+   6$ ./ex17 db.dat s 3 joe joe@zedshaw.com
+   7$
+   8$ ./ex17 db.dat l
+   91 zed zed@zedshaw.com
+   102 frank frank@zedshaw.com
+   113 joe joe@zedshaw.com
+   12$ ./ex17 db.dat d 3
+   13$ ./ex17 db.dat l
+   141 zed zed@zedshaw.com
+   152 frank frank@zedshaw.com
+   16$ ./ex17 db.dat g 2
+   172 frank frank@zedshaw.com
+   18$
+   19$ valgrind --leak-check=yes ./ex17 db.dat g 2
+   20# cut valgrind output...
+   21$
+     __________________________________________________________________
+
+   The actual output of Valgrind is taken out since you should be able to
+   detect it.
+     __________________________________________________________________
+
+   Note 5: OSX Valgrind "Leaks"
+
+   Valgrind will report that you're leaking small blocks of memory, but
+   sometimes it's just over-reporting from OSX's internal APIs. If you see
+   it showing leaks that aren't inside your code then just ignore them.
+     __________________________________________________________________
+
+18.2 Heap vs. Stack Allocation
+
+   You kids these days have it great. You play with your Ruby or Python
+   and just make objects and variables without any care for where they
+   live. You don't care if it's on the "stack", and the heap?
+   Fuggedaboutit. You don't even know, and you know what, chances are your
+   language of choice doesn't even put the variables on stack at all. It's
+   all heap, and you don't even know if it is.
+
+   C is different because it's using the real CPU's actual machinery to do
+   its work, and that involves a chunk of ram called the stack and another
+   called the heap. What's the difference? It all depends on where you get
+   the storage.
+
+   The heap is easier to explain as it's just all the remaining memory in
+   your computer, and you access it with the function malloc to get more.
+   Each time you call malloc, the OS uses internal functions to register
+   that piece of memory to you, and then returns a pointer to it. When
+   you're done with it, you use free to return it to the OS so that it can
+   be used by other programs. Failing to do this will cause your program
+   to "leak" memory, but Valgrind will help you track these leaks down.
+
+   The stack is a special region of memory that stores temporary variables
+   each function creates as locals to that function. How it works is each
+   argument to a function is "pushed" onto the stack, and then used inside
+   the function. It is really a stack data structure, so the last thing in
+   is the first thing out. This also happens with all local variables like
+   char action and int id in main. The advantage of using a stack for this
+   is simply that, when the function exits, the C compiler "pops" these
+   variables off the stack to clean up. This is simple and prevents memory
+   leaks if the variable is on the stack.
+
+   The easiest way to keep this straight is with this mantra: If you
+   didn't get it from malloc or a function that got it from malloc, then
+   it's on the stack.
+
+   There's three primary problems with stacks and heaps to watch for:
+
+    1. If you get a block of memory from malloc, and have that pointer on
+       the stack, then when the function exits, the pointer will get
+       popped off and lost.
+    2. If you put too much data on the stack (like large structs and
+       arrays) then you can cause a "stack overflow" and the program will
+       abort. In this case, use the heap with malloc.
+    3. If you take a pointer to something on the stack, and then pass that
+       or return it from your function, then the function receiving it
+       will "segmentation fault" (segfault) because the actual data will
+       get popped off and disappear. You'll be pointing at dead space.
+
+   This is why in the program I've created a Database_open that allocates
+   memory or dies, and then a Database_close that frees everything. If you
+   create a "create" function, that makes the whole thing or nothing, and
+   then a "destroy" function that cleans up everything safely, then it's
+   easier to keep it all straight.
+
+   Finally, when a program exits the OS will clean up all the resources
+   for you, but sometimes not immediately. A common idiom (and one I use
+   in this exercise) is to just abort and let the OS clean up on error.
+
+18.3 How To Break It
+
+   This program has a lot of places you can break it, so try some of these
+   but also come up with your own:
+
+    1. The classic way is to remove some of the safety checks such that
+       you can pass in arbitrary data. For example, if you remove the
+       check on line 159 that prevents you from passing in any record
+       number.
+    2. You can also try corrupting the data file. Open it in any editor
+       and change random bytes then close it.
+    3. You could also find ways to pass bad arguments to the program when
+       it's run, such as getting the file and action backwards will make
+       it create a file named after the action, then do an action based on
+       the first character.
+    4. There is a bug in this program because of strncpy being poorly
+       designed. Go read about strncpy then try to find out what happens
+       when the name or address you give is greater than 512 bytes. Fix
+       this by simply forcing the last character to '\0' so that it's
+       always set no matter what (which is what strncpy should do).
+    5. In the extra credit I have you augment the program to create
+       arbitrary size databases. Try to see what the biggest database is
+       before you cause the program to die for lack of memory from malloc.
+
+18.4 Extra Credit
+
+    1. The die function needs to be augmented to let you pass the conn
+       variable so it can close it and clean up.
+    2. Change the code to accept parameters for MAX_DATA and MAX_ROWS,
+       store them in the Database struct, and write that to the file, thus
+       creating a database that can be arbitrarily sized.
+    3. Add more operations you can do on the database, like find.
+    4. Read about how C does it's struct packing, and then try to see why
+       your file is the size it is. See if you can calculate a new size
+       after adding more fields.
+    5. Add some more fields to the Address and make them searchable.
+    6. Write a shell script that will do your testing automatically for
+       you by running commands in the right order. Hint: Use set -e at the
+       top of a bash to make it abort the whole script if any command has
+       an error.
+    7. Try reworking the program to use a single global for the database
+       connection. How does this new version of the program compare to the
+       other one?
+    8. Go research "stack data structure" and write one in your favorite
+       language, then try to do it in C.
+
+   ^1On some rare systems NULL will be stored in the computer
+   (represented) as something not 0, but the C standard says you should
+   still be able to write code as if it has a 0 value. From now on when I
+   say "NULL is 0" I mean its value for anyone who is overly pedantic.
+
+   [next] [prev] [prev-tail] [front] [up]
+     __________________________________________________________________
+
+   Please enable JavaScript to view the comments powered by Disqus.
+
+Take An Online Video Course
+
+   You can sign up for a video course at:
+
+   http://www.udemy.com/learn-c-the-hard-way/
+
+   This course is currently being built at the same time that the book is
+   being built, but if you sign up now then you get early access to both
+   the videos and PDF of the book.
+
+Related Books
+
+   You might want to check out these other books in the series:
+    1. Learn Ruby The Hard Way
+    2. Learn Regex The Hard Way
+    3. Learn SQL The Hard Way
+    4. Learn C The Hard Way
+    5. Learn Python The Hard Way
+
+   I'll be referencing other books shortly.
+
+   Copyright 2011 Zed A. Shaw. All Rights Reserved.

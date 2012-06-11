@@ -1,0 +1,759 @@
+
+   Learn C The Hard Way A Learn Code The Hard Way Book
+     * Book
+     * Comments
+     * Video Courses
+     * Related Books
+
+   [next] [prev] [prev-tail] [tail] [up]
+
+Chapter 41
+Exercise 40: Binary Search Trees
+
+   The binary tree is the simplest tree based data structure and while it
+   has been replaced by Hash Maps in many languages is still useful for
+   many applications. Variants on the binary tree exist for very useful
+   things like database indexes, search algorithm structures, and even
+   graphics processing.
+
+   I'm calling my binary tree a BSTree for "binary search tree" and the
+   best way to describe it is that it's another way to do a Hashmap style
+   key/value store. The difference is that instead of hashing the key to
+   find a location, the BSTree compares the key to nodes in a tree, and
+   then walks the tree to find the best place to store it based on how it
+   compares to other nodes.
+
+   Before I really explain how this works, let me show you the bstree.h
+   header file so you can see the data structures, then I can use that to
+   explain how it's built.
+     __________________________________________________________________
+
+   Source 130: src/lcthw/bstree.h
+   1  #ifndef _lcthw_BSTree_h
+   2  #define _lcthw_BSTree_h
+   3
+   4
+   5  typedef int (*BSTree_compare)(void *a, void *b);
+   6
+   7  typedef struct BSTreeNode {
+   8      void *key;
+   9      void *data;
+   10
+   11      struct BSTreeNode *left;
+   12      struct BSTreeNode *right;
+   13      struct BSTreeNode *parent;
+   14  } BSTreeNode;
+   15
+   16  typedef struct BSTree {
+   17      int count;
+   18      BSTree_compare compare;
+   19      BSTreeNode *root;
+   20  } BSTree;
+   21
+   22  typedef int (*BSTree_traverse_cb)(BSTreeNode *node);
+   23
+   24  BSTree *BSTree_create(BSTree_compare compare);
+   25  void BSTree_destroy(BSTree *map);
+   26
+   27  int BSTree_set(BSTree *map, void *key, void *data);
+   28  void *BSTree_get(BSTree *map, void *key);
+   29
+   30  int BSTree_traverse(BSTree *map, BSTree_traverse_cb traverse_cb);
+   31
+   32  void *BSTree_delete(BSTree *map, void *key);
+   33
+   34  #endif
+     __________________________________________________________________
+
+   This follows the same pattern I've been using this whole time where I
+   have a base "container" named BSTree and that then has nodes names
+   BSTreeNode that make up the actual contents. Bored yet? Good, there's
+   no reason to be clever with this kind of structure.
+
+   The important part is how the BSTreeNode is configured and how it gets
+   used to do each operation: set, get, and delete. I'll cover get first
+   since it's the easiest operation and I'll pretend I'm doing it manually
+   against the data structure:
+    1. I take the key you're looking for and I start at the root. First
+       thing I do is compare your key with that node's key.
+    2. If your key is less-than the node.key, then I traverse down the
+       tree using the left pointer.
+    3. If your key is greater-than the node.key, then I go down with
+       right.
+    4. I repeat step 2 and 3 until either I find a matching node.key, or I
+       get to a node that has no left and right. In the first case I
+       return the node.data, in the second I return NULL.
+
+   That's all there is to get, so now to do set it's nearly the same
+   thing, except you're looking for where to put a new node:
+    1. If there is no BSTree.root then I just make that and we're done.
+       That's the first node.
+    2. After that I compare your key to node.key, starting at the root.
+    3. If your key is less-than or equal to the node.key then I want to go
+       left. If your key is greater-than (not equal) then I want to go
+       right.
+    4. I keep repeating 3 until I reach a node where the left or right
+       doesn't exist, but that's the direction I need to go.
+    5. Once there I set that direction (left or right) to a new node for
+       the key and data I want, and set this new node's parent to the
+       previous node I came from. I'll use the parent node when I do
+       delete.
+
+   This also makes sense given how get works. If finding a node involves
+   going left or right depending on how they key compares, well then
+   setting a node involves the same thing until I can set the left or
+   right for a new node.
+
+   Take some time to draw out a few trees on paper and go through some
+   setting and getting nodes so you understand how it work. After that you
+   are ready to look at the implementation so that I can explain delete.
+   Deleting in trees is a major pain, and so it's best explained by doing
+   a line-by-line code breakdown.
+     __________________________________________________________________
+
+   Source 131: src/lcthw/bstree.c
+   1  #include <lcthw/dbg.h>
+   2  #include <lcthw/bstree.h>
+   3  #include <stdlib.h>
+   4  #include <lcthw/bstrlib.h>
+   5
+   6  static int default_compare(void *a, void *b)
+   7  {
+   8      return bstrcmp((bstring)a, (bstring)b);
+   9  }
+   10
+   11
+   12  BSTree *BSTree_create(BSTree_compare compare)
+   13  {
+   14      BSTree *map = calloc(1, sizeof(BSTree));
+   15      check_mem(map);
+   16
+   17      map->compare = compare == NULL ? default_compare : compare;
+   18
+   19      return map;
+   20
+   21  error:
+   22      if(map) {
+   23          BSTree_destroy(map);
+   24      }
+   25      return NULL;
+   26  }
+   27
+   28  static int BSTree_destroy_cb(BSTreeNode *node)
+   29  {
+   30      free(node);
+   31      return 0;
+   32  }
+   33
+   34  void BSTree_destroy(BSTree *map)
+   35  {
+   36      if(map) {
+   37          BSTree_traverse(map, BSTree_destroy_cb);
+   38          free(map);
+   39      }
+   40  }
+   41
+   42
+   43  static inline BSTreeNode *BSTreeNode_create(BSTreeNode *parent, voi
+   d *key, void *data)
+   44  {
+   45      BSTreeNode *node = calloc(1, sizeof(BSTreeNode));
+   46      check_mem(node);
+   47
+   48      node->key = key;
+   49      node->data = data;
+   50      node->parent = parent;
+   51      return node;
+   52
+   53  error:
+   54      return NULL;
+   55  }
+   56
+   57
+   58  static inline void BSTree_setnode(BSTree *map, BSTreeNode *node, vo
+   id *key, void *data)
+   59  {
+   60      int cmp = map->compare(node->key, key);
+   61
+   62      if(cmp <= 0) {
+   63          if(node->left) {
+   64              BSTree_setnode(map, node->left, key, data);
+   65          } else {
+   66              node->left = BSTreeNode_create(node, key, data);
+   67          }
+   68      } else {
+   69          if(node->right) {
+   70              BSTree_setnode(map, node->right, key, data);
+   71          } else {
+   72              node->right = BSTreeNode_create(node, key, data);
+   73          }
+   74      }
+   75  }
+   76
+   77
+   78  int BSTree_set(BSTree *map, void *key, void *data)
+   79  {
+   80      if(map->root == NULL) {
+   81          // first so just make it and get out
+   82          map->root = BSTreeNode_create(NULL, key, data);
+   83          check_mem(map->root);
+   84      } else {
+   85          BSTree_setnode(map, map->root, key, data);
+   86      }
+   87
+   88      return 0;
+   89  error:
+   90      return -1;
+   91  }
+   92
+   93  static inline BSTreeNode *BSTree_getnode(BSTree *map, BSTreeNode *n
+   ode, void *key)
+   94  {
+   95      int cmp = map->compare(node->key, key);
+   96
+   97      if(cmp == 0) {
+   98          return node;
+   99      } else if(cmp < 0) {
+   100          if(node->left) {
+   101              return BSTree_getnode(map, node->left, key);
+   102          } else {
+   103              return NULL;
+   104          }
+   105      } else {
+   106          if(node->right) {
+   107              return BSTree_getnode(map, node->right, key);
+   108          } else {
+   109              return NULL;
+   110          }
+   111      }
+   112  }
+   113
+   114  void *BSTree_get(BSTree *map, void *key)
+   115  {
+   116      if(map->root == NULL) {
+   117          return NULL;
+   118      } else {
+   119          BSTreeNode *node = BSTree_getnode(map, map->root, key);
+   120          return node == NULL ? NULL : node->data;
+   121      }
+   122  }
+   123
+   124
+   125  static inline int BSTree_traverse_nodes(BSTreeNode *node, BSTree_t
+   raverse_cb traverse_cb)
+   126  {
+   127      int rc = 0;
+   128
+   129      if(node->left) {
+   130          rc = BSTree_traverse_nodes(node->left, traverse_cb);
+   131          if(rc != 0) return rc;
+   132      }
+   133
+   134      if(node->right) {
+   135          rc = BSTree_traverse_nodes(node->right, traverse_cb);
+   136          if(rc != 0) return rc;
+   137      }
+   138
+   139      return traverse_cb(node);
+   140  }
+   141
+   142  int BSTree_traverse(BSTree *map, BSTree_traverse_cb traverse_cb)
+   143  {
+   144      if(map->root) {
+   145          return BSTree_traverse_nodes(map->root, traverse_cb);
+   146      }
+   147
+   148      return 0;
+   149  }
+   150
+   151  static inline BSTreeNode *BSTree_find_min(BSTreeNode *node)
+   152  {
+   153      while(node->left) {
+   154          node = node->left;
+   155      }
+   156
+   157      return node;
+   158  }
+   159
+   160  static inline void BSTree_replace_node_in_parent(BSTree *map, BSTr
+   eeNode *node, BSTreeNode *new_value)
+   161  {
+   162      if(node->parent) {
+   163          if(node == node->parent->left) {
+   164              node->parent->left = new_value;
+   165          } else {
+   166              node->parent->right = new_value;
+   167          }
+   168      } else {
+   169          // this is the root so gotta change it
+   170          map->root = new_value;
+   171      }
+   172
+   173      if(new_value) {
+   174          new_value->parent = node->parent;
+   175      }
+   176  }
+   177
+   178  static inline void BSTree_swap(BSTreeNode *a, BSTreeNode *b)
+   179  {
+   180      void *temp = NULL;
+   181      temp = b->key; b->key = a->key; a->key = temp;
+   182      temp = b->data; b->data = a->data; a->data = temp;
+   183  }
+   184
+   185  static inline BSTreeNode *BSTree_node_delete(BSTree *map, BSTreeNo
+   de *node, void *key)
+   186  {
+   187      int cmp = map->compare(node->key, key);
+   188
+   189      if(cmp < 0) {
+   190          if(node->left) {
+   191              return BSTree_node_delete(map, node->left, key);
+   192          } else {
+   193              // not found
+   194              return NULL;
+   195          }
+   196      } else if(cmp > 0) {
+   197          if(node->right) {
+   198              return BSTree_node_delete(map, node->right, key);
+   199          } else {
+   200              // not found
+   201              return NULL;
+   202          }
+   203      } else {
+   204          if(node->left && node->right) {
+   205              // swap this node for the smallest node that is bigger
+    than us
+   206              BSTreeNode *successor = BSTree_find_min(node->right);
+   207              BSTree_swap(successor, node);
+   208
+   209              // this leaves the old successor with possibly a right
+    child
+   210              // so replace it with that right child
+   211              BSTree_replace_node_in_parent(map, successor, successo
+   r->right);
+   212
+   213              // finally it's swapped, so return successor instead o
+   f node
+   214              return successor;
+   215          } else if(node->left) {
+   216              BSTree_replace_node_in_parent(map, node, node->left);
+   217          } else if(node->right) {
+   218              BSTree_replace_node_in_parent(map, node, node->right);
+   219          } else {
+   220              BSTree_replace_node_in_parent(map, node, NULL);
+   221          }
+   222
+   223          return node;
+   224      }
+   225  }
+   226
+   227  void *BSTree_delete(BSTree *map, void *key)
+   228  {
+   229      void *data = NULL;
+   230
+   231      if(map->root) {
+   232          BSTreeNode *node = BSTree_node_delete(map, map->root, key)
+   ;
+   233
+   234          if(node) {
+   235              data = node->data;
+   236              free(node);
+   237          }
+   238      }
+   239
+   240      return data;
+   241  }
+     __________________________________________________________________
+
+   Before getting into how BSTree_delete works I want to explain a pattern
+   I'm using for doing recursive function calls in a sane way. You'll find
+   that many tree based data structures are easy to write if you use
+   recursion, but that forumlating a single recursive function is
+   difficult. Part of the problem is that you need to setup some initial
+   data for the first operation, then recurse into the data structure,
+   which is hard to do with one function.
+
+   The solution is to use two functions. One function "sets up" the data
+   structure and initial recursion conditions so that a second function
+   can do the real work. Take a look at BSTree_get first to see what I
+   mean:
+    1. I have an initial condition to handle that if map->root is NULL
+       then return NULL and don't recurse.
+    2. I then setup a call to the real recursion, which is in
+       BSTree_getnode. I create the initial condition of the root node to
+       start with, the key, and the map.
+    3. In the BSTree_getnode then I do the actual recursive logic. I
+       compare the keys with map->compare(node->key, key) and go left,
+       right, or equal depending on that.
+    4. Since this function is "self-similar" and doesn't have to handle
+       any initial conditions (because BSTree_get did) then I can
+       structure it verys simply. When it's done it returns to the caller,
+       and that return then comes back to BSTree_get the result.
+    5. At the end, the BSTree_get then handles getting the node.data
+       element but only if the result isn't NULL.
+
+   This way of structuring a recursive algorithm matches the way I
+   structure my recursive data structures. I have an initial "base
+   function" that handles initial conditions and some edge cases, then it
+   calls a clean recursive function that does the work. Compare that with
+   how I have a "base struct" in BStree combined with recursive BSTreeNode
+   structures that all reference each other in a tree. Using this pattern
+   makes it easy to deal with recursion and keep it straight.
+
+   Next, go look at BSTree_set and BSTree_setnode to see the exact same
+   pattern going on. I use BSTree_set to configure the initial conditions
+   and edge cases. A common edge case is that there's no root node, so I
+   have to make one to get things started.
+
+   This pattern will work with nearly any recursive algorithm you have to
+   figure out. The way I do this is I follow this pattern:
+    1. Figure out the initial variables, how they change, and what the
+       stopping conditions are for each recursive step.
+    2. Write a recursive function that calls itself, with arguments for
+       each stopping condition and initial variable.
+    3. Write a setup function to set initial starting conditions for the
+       algorithm and handle edge cases, then it calls the recursive
+       function.
+    4. Finally, the setup function returns the final result and possibly
+       alters it if the recursive function can't handle final edge cases.
+
+   Which leads me finally to BSTree_delete and BSTree_node_delete. First
+   you can just look at BSTree_delete and see that it's the setup
+   function, and what it is doing is grabbing the resulting node data and
+   freeing the node that's found. In BSTree_node_delete is where things
+   get complex because to delete a node at any point in the tree, I have
+   to rotate that node's children up to the parent. I'll break this
+   function down and the ones it uses:
+
+   bstree.c:190
+          I run the compare function to figure out which direction I'm
+          going.
+
+   bstree.c:192-198
+          This is the usual "less-than" branch where I want to go left.
+          I'm handling the case that left doesn't exist here and returning
+          NULL to say "not found". This handles deleting something that
+          isn't in the BSTree.
+
+   bstree.c:199-205
+          The same thing but for the right branch of the tree. Just keep
+          recursing down into the tree just like in the other functions,
+          and return NULL if it doesn't exist.
+
+   bstree.c:206
+          This is where I have found the node since the key is equal
+          (compare return 0).
+
+   bstree.c:207
+          This node has both a left and right branch, so it's deeply
+          embedded in the tree.
+
+   bstree.c:209
+          To remove this node I need to first find the smallest node
+          that's greater than this node, which means I call
+          BSTree_find_min on the right child.
+
+   bstree.c:210
+          Once I have this node, I will do a swap on its key and data with
+          the current node's. This will effectively take this node that
+          was down at the bottom of the tree, and put it's contents here
+          so that I don't have to try and shuffle this node out by its
+          pointers.
+
+   bstree.c:214
+          The successor is now this dead branch that has the current
+          node's values. It could just be removed, but there's a chance
+          that it has a right node value, which means I need to do a
+          single rotate so that the successor's right node gets moved up
+          to completely detach it.
+
+   bstree.c:217
+          At this point, the successor is removed from the tree, its
+          values replaced the current node's values, and any children it
+          had are moved up into the parent. I can return the successor as
+          if it were the node.
+
+   bstree.c:218
+          At this branch I know that the node has a left but no right, so
+          I want to replace this node with its left child.
+
+   bstree.c:219
+          I again use BSTree_replace_node_in_parent to do the replace,
+          rotating the left child up.
+
+   bstree.c:220
+          This branch of the if-statement means I have a right child but
+          no left child, so I want to rotate the right child up.
+
+   bstree.c:221
+          Again, use the function to do the rotate, but this time of the
+          right node.
+
+   bstree.c:222
+          Finally, the only thing that's left is the condition that I've
+          found the node, and it has no children (no left or right). In
+          this case, I simply replace this node with NULL using the same
+          function I did with all the others.
+
+   bstree.c:210
+          After all that, I have the current node rotated out of the tree
+          and replaced with some child element that will fit in the tree.
+          I just return this to the caller so it can be freed and managed.
+
+   This operation is very complex, and to be honest, in some tree data
+   structures I just don't bother doing deletes and treat them like
+   constant data in my software. If I need to do heavy insert and delete,
+   I use a Hashmap instead.
+
+   Finally, you can look at the unit test to see how I'm testing it:
+     __________________________________________________________________
+
+   Source 132: tests/bstree_tests.c
+   1  #include "minunit.h"
+   2  #include <lcthw/bstree.h>
+   3  #include <assert.h>
+   4  #include <lcthw/bstrlib.h>
+   5  #include <stdlib.h>
+   6  #include <time.h>
+   7
+   8  BSTree *map = NULL;
+   9  static int traverse_called = 0;
+   10  struct tagbstring test1 = bsStatic("test data 1");
+   11  struct tagbstring test2 = bsStatic("test data 2");
+   12  struct tagbstring test3 = bsStatic("xest data 3");
+   13  struct tagbstring expect1 = bsStatic("THE VALUE 1");
+   14  struct tagbstring expect2 = bsStatic("THE VALUE 2");
+   15  struct tagbstring expect3 = bsStatic("THE VALUE 3");
+   16
+   17  static int traverse_good_cb(BSTreeNode *node)
+   18  {
+   19      debug("KEY: %s", bdata((bstring)node->key));
+   20      traverse_called++;
+   21      return 0;
+   22  }
+   23
+   24
+   25  static int traverse_fail_cb(BSTreeNode *node)
+   26  {
+   27      debug("KEY: %s", bdata((bstring)node->key));
+   28      traverse_called++;
+   29
+   30      if(traverse_called == 2) {
+   31          return 1;
+   32      } else {
+   33          return 0;
+   34      }
+   35  }
+   36
+   37
+   38  char *test_create()
+   39  {
+   40      map = BSTree_create(NULL);
+   41      mu_assert(map != NULL, "Failed to create map.");
+   42
+   43      return NULL;
+   44  }
+   45
+   46  char *test_destroy()
+   47  {
+   48      BSTree_destroy(map);
+   49
+   50      return NULL;
+   51  }
+   52
+   53
+   54  char *test_get_set()
+   55  {
+   56      int rc = BSTree_set(map, &test1, &expect1);
+   57      mu_assert(rc == 0, "Failed to set &test1");
+   58      bstring result = BSTree_get(map, &test1);
+   59      mu_assert(result == &expect1, "Wrong value for test1.");
+   60
+   61      rc = BSTree_set(map, &test2, &expect2);
+   62      mu_assert(rc == 0, "Failed to set test2");
+   63      result = BSTree_get(map, &test2);
+   64      mu_assert(result == &expect2, "Wrong value for test2.");
+   65
+   66      rc = BSTree_set(map, &test3, &expect3);
+   67      mu_assert(rc == 0, "Failed to set test3");
+   68      result = BSTree_get(map, &test3);
+   69      mu_assert(result == &expect3, "Wrong value for test3.");
+   70
+   71      return NULL;
+   72  }
+   73
+   74  char *test_traverse()
+   75  {
+   76      int rc = BSTree_traverse(map, traverse_good_cb);
+   77      mu_assert(rc == 0, "Failed to traverse.");
+   78      mu_assert(traverse_called == 3, "Wrong count traverse.");
+   79
+   80      traverse_called = 0;
+   81      rc = BSTree_traverse(map, traverse_fail_cb);
+   82      mu_assert(rc == 1, "Failed to traverse.");
+   83      mu_assert(traverse_called == 2, "Wrong count traverse for fail.
+   ");
+   84
+   85      return NULL;
+   86  }
+   87
+   88  char *test_delete()
+   89  {
+   90      bstring deleted = (bstring)BSTree_delete(map, &test1);
+   91      mu_assert(deleted != NULL, "Got NULL on delete.");
+   92      mu_assert(deleted == &expect1, "Should get test1");
+   93      bstring result = BSTree_get(map, &test1);
+   94      mu_assert(result == NULL, "Should delete.");
+   95
+   96      deleted = (bstring)BSTree_delete(map, &test1);
+   97      mu_assert(deleted == NULL, "Should get NULL on delete");
+   98
+   99      deleted = (bstring)BSTree_delete(map, &test2);
+   100      mu_assert(deleted != NULL, "Got NULL on delete.");
+   101      mu_assert(deleted == &expect2, "Should get test2");
+   102      result = BSTree_get(map, &test2);
+   103      mu_assert(result == NULL, "Should delete.");
+   104
+   105      deleted = (bstring)BSTree_delete(map, &test3);
+   106      mu_assert(deleted != NULL, "Got NULL on delete.");
+   107      mu_assert(deleted == &expect3, "Should get test3");
+   108      result = BSTree_get(map, &test3);
+   109      mu_assert(result == NULL, "Should delete.");
+   110
+   111      // test deleting non-existent stuff
+   112      deleted = (bstring)BSTree_delete(map, &test3);
+   113      mu_assert(deleted == NULL, "Should get NULL");
+   114
+   115      return NULL;
+   116  }
+   117
+   118  char *test_fuzzing()
+   119  {
+   120      BSTree *store = BSTree_create(NULL);
+   121      int i = 0;
+   122      int j = 0;
+   123      bstring numbers[100] = {NULL};
+   124      bstring data[100] = {NULL};
+   125      srand((unsigned int)time(NULL));
+   126
+   127      for(i = 0; i < 100; i++) {
+   128          int num = rand();
+   129          numbers[i] = bformat("%d", num);
+   130          data[i] = bformat("data %d", num);
+   131          BSTree_set(store, numbers[i], data[i]);
+   132      }
+   133
+   134      for(i = 0; i < 100; i++) {
+   135          bstring value = BSTree_delete(store, numbers[i]);
+   136          mu_assert(value == data[i], "Failed to delete the right nu
+   mber.");
+   137
+   138          mu_assert(BSTree_delete(store, numbers[i]) == NULL, "Shoul
+   d get nothing.");
+   139
+   140          for(j = i+1; j < 99 - i; j++) {
+   141              bstring value = BSTree_get(store, numbers[j]);
+   142              mu_assert(value == data[j], "Failed to get the right n
+   umber.");
+   143          }
+   144
+   145          bdestroy(value);
+   146          bdestroy(numbers[i]);
+   147      }
+   148
+   149      BSTree_destroy(store);
+   150
+   151      return NULL;
+   152  }
+   153
+   154  char *all_tests()
+   155  {
+   156      mu_suite_start();
+   157
+   158      mu_run_test(test_create);
+   159      mu_run_test(test_get_set);
+   160      mu_run_test(test_traverse);
+   161      mu_run_test(test_delete);
+   162      mu_run_test(test_destroy);
+   163      mu_run_test(test_fuzzing);
+   164
+   165      return NULL;
+   166  }
+   167
+   168  RUN_TESTS(all_tests);
+     __________________________________________________________________
+
+   I'll point you at the test_fuzzing function, which is an interesting
+   technique for testing complex data structures. It is difficult to
+   create a set of keys that cover all the branches in BSTree_node_delete,
+   and chances are I would miss some edge case. A better way is to create
+   a "fuzz" function that does all the operations, but does them in as
+   horrible and random a way as possible. In this case I'm inserting a set
+   of random string keys, then I'm deleting them and trying to get the
+   rest after each delete.
+
+   Doing this prevents the situation where you test only what you know to
+   work, which means you'll miss things you don't know. By throwing random
+   junk at your data structures you'll hit things you didn't expect and
+   work out any bugs you have.
+
+41.1 How To Improve It
+
+   Do not do any of these yet since in the next exercise I'll be using
+   this unit test to teach you some more performance tuning tricks. You'll
+   come back and do these after you do Exercise 41.
+
+    1. As usual, you should go through all the defensive programming
+       checks and add asserts for conditions that shouldn't happen. For
+       example, you should not be getting NULL values for the recursion
+       functions, so assert that.
+    2. The traverse function traverses the tree in order by traversing
+       left, then right, then the current node. You can create traverse
+       functions for reverse order as well.
+    3. It does a full string compare on every node, but I could use the
+       Hashmap hashing functions to speed this up. I could hash the keys,
+       then keep the hash in the BSTreeNode. Then in each of the set up
+       functions I can hash the key ahead of time, and pass it down to the
+       recursive function. Using this hash I can then compare each node
+       much quicker similar to I do in Hashmap.
+
+41.2 Extra Credit
+
+   Again, do not do these yet, wait until Exercise 41 when you can use
+   performance tuning features of Valgrind to do them.
+
+    1. There's an alternative way to do this data structure without using
+       recursion. The Wikipedia page shows alternatives that don't use
+       recursion but do the same thing. Why would this be better or worse?
+    2. Read up on all the different similar trees you can find. There's
+       AVL trees, Red-Black trees, and some non-tree structures like Skip
+       Lists.
+
+   [next] [prev] [prev-tail] [front] [up]
+     __________________________________________________________________
+
+   Please enable JavaScript to view the comments powered by Disqus.
+
+Take An Online Video Course
+
+   You can sign up for a video course at:
+
+   http://www.udemy.com/learn-c-the-hard-way/
+
+   This course is currently being built at the same time that the book is
+   being built, but if you sign up now then you get early access to both
+   the videos and PDF of the book.
+
+Related Books
+
+   You might want to check out these other books in the series:
+    1. Learn Ruby The Hard Way
+    2. Learn Regex The Hard Way
+    3. Learn SQL The Hard Way
+    4. Learn C The Hard Way
+    5. Learn Python The Hard Way
+
+   I'll be referencing other books shortly.
+
+   Copyright 2011 Zed A. Shaw. All Rights Reserved.

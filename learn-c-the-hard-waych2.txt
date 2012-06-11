@@ -1,0 +1,113 @@
+
+   Learn C The Hard Way A Learn Code The Hard Way Book
+     * Book
+     * Comments
+     * Video Courses
+     * Related Books
+
+   [next] [prev] [prev-tail] [tail] [up]
+
+Chapter 2
+Exercise 1: Dust Off That Compiler
+
+   Here is a simple first program you can make in C:
+     __________________________________________________________________
+
+   Source 3: ex1.c
+   1  int main(int argc, char *argv[])
+   2  {
+   3      puts("Hello world.");
+   4
+   5      return 0;
+   6  }
+     __________________________________________________________________
+
+   You can put this into a ex1.c then type:
+     __________________________________________________________________
+
+   Source 4: Building ex1
+   1$ make ex1
+   2cc     ex1.c   -o ex1
+     __________________________________________________________________
+
+   Your computer may use a slightly different command, but the end result
+   should be a file named ex1 that you can run.
+
+2.1 What You Should See
+
+   You can now run the program and see the output.
+     __________________________________________________________________
+
+   Source 5: Running ex1
+   1$ ./ex1
+   2Hello world.
+     __________________________________________________________________
+
+   If you don't then go back and fix it.
+
+2.2 How To Break It
+
+   In this book I'm going to have a small section for each program on how
+   to break the program. I'll have you do odd things to the programs, run
+   them in weird ways, or change code so that you can see crashes and
+   compiler errors.
+
+   For this program, rebuild it with all compiler warnings on:
+     __________________________________________________________________
+
+   Source 6: Building ex1 with -Wall
+   1$ rm ex1
+   2$ CFLAGS="-Wall" make ex1
+   3cc -Wall    ex1.c   -o ex1
+   4ex1.c: In function 'main':
+   5ex1.c:3: warning: implicit declaration of function 'puts'
+   6$ ./ex1
+   7Hello world.
+   8$
+     __________________________________________________________________
+
+   Now you are getting a warning that says the function "puts" is
+   implicitly declared. The C compiler is smart enough to figure out what
+   you want, but you should be getting rid of all compiler warnings when
+   you can. How you do this is add the following line to the top of ex1.c
+   and recompile:
+   1#include <stdio.h>
+
+   Now do the make again like you just did and you'll see the warning go
+   away.
+
+2.3 Extra Credit
+
+    1. Open the ex1 file in your text editor and change or delete random
+       parts. Try running it and see what happens.
+    2. Print out 5 more lines of text or something more complex than hello
+       world.
+    3. Run man 3 puts and read about this function and many others.
+
+   [next] [prev] [prev-tail] [front] [up]
+     __________________________________________________________________
+
+   Please enable JavaScript to view the comments powered by Disqus.
+
+Take An Online Video Course
+
+   You can sign up for a video course at:
+
+   http://www.udemy.com/learn-c-the-hard-way/
+
+   This course is currently being built at the same time that the book is
+   being built, but if you sign up now then you get early access to both
+   the videos and PDF of the book.
+
+Related Books
+
+   You might want to check out these other books in the series:
+    1. Learn Ruby The Hard Way
+    2. Learn Regex The Hard Way
+    3. Learn SQL The Hard Way
+    4. Learn C The Hard Way
+    5. Learn Python The Hard Way
+
+   I'll be referencing other books shortly.
+
+   Copyright 2011 Zed A. Shaw. All Rights Reserved.

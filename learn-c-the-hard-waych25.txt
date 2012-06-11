@@ -1,0 +1,270 @@
+
+   Learn C The Hard Way A Learn Code The Hard Way Book
+     * Book
+     * Comments
+     * Video Courses
+     * Related Books
+
+   [next] [prev] [prev-tail] [tail] [up]
+
+Chapter 25
+Exercise 24: Input, Output, Files
+
+   You've been using printf to print things, and that's great and all, but
+   you need more. In this exercise program you're using the functions
+   fscanf and fgets to build information about a person in a structure.
+   After this simple introduction to reading input, you'll get a full list
+   of the functions that C has for I/O. Some of these you've already seen
+   and used, so this will be another memorization exercise.
+     __________________________________________________________________
+
+   Source 63: ex24.c
+   1  #include <stdio.h>
+   2  #include "dbg.h"
+   3
+   4  #define MAX_DATA 100
+   5
+   6  typedef enum EyeColor {
+   7      BLUE_EYES, GREEN_EYES, BROWN_EYES,
+   8      BLACK_EYES, OTHER_EYES
+   9  } EyeColor;
+   10
+   11  const char *EYE_COLOR_NAMES[] = {
+   12      "Blue", "Green", "Brown", "Black", "Other"
+   13  };
+   14
+   15  typedef struct Person {
+   16      int age;
+   17      char first_name[MAX_DATA];
+   18      char last_name[MAX_DATA];
+   19      EyeColor eyes;
+   20      float income;
+   21  } Person;
+   22
+   23
+   24  int main(int argc, char *argv[])
+   25  {
+   26      Person you = {.age = 0};
+   27      int i = 0;
+   28      char *in = NULL;
+   29
+   30      printf("What's your First Name? ");
+   31      in = fgets(you.first_name, MAX_DATA-1, stdin);
+   32      check(in != NULL, "Failed to read first name.");
+   33
+   34      printf("What's your Last Name? ");
+   35      in = fgets(you.last_name, MAX_DATA-1, stdin);
+   36      check(in != NULL, "Failed to read last name.");
+   37
+   38      printf("How old are you? ");
+   39      int rc = fscanf(stdin, "%d", &you.age);
+   40      check(rc > 0, "You have to enter a number.");
+   41
+   42      printf("What color are your eyes:\n");
+   43      for(i = 0; i <= OTHER_EYES; i++) {
+   44          printf("%d) %s\n", i+1, EYE_COLOR_NAMES[i]);
+   45      }
+   46      printf("> ");
+   47
+   48      int eyes = -1;
+   49      rc = fscanf(stdin, "%d", &eyes);
+   50      check(rc > 0, "You have to enter a number.");
+   51
+   52      you.eyes = eyes - 1;
+   53      check(you.eyes <= OTHER_EYES && you.eyes >= 0, "Do it right, th
+   at's not an option.");
+   54
+   55      printf("How much do you make an hour? ");
+   56      rc = fscanf(stdin, "%f", &you.income);
+   57      check(rc > 0, "Enter a floating point number.");
+   58
+   59      printf("----- RESULTS -----\n");
+   60
+   61      printf("First Name: %s", you.first_name);
+   62      printf("Last Name: %s", you.last_name);
+   63      printf("Age: %d\n", you.age);
+   64      printf("Eyes: %s\n", EYE_COLOR_NAMES[you.eyes]);
+   65      printf("Income: %f\n", you.income);
+   66
+   67      return 0;
+   68  error:
+   69
+   70      return -1;
+   71  }
+     __________________________________________________________________
+
+   This program is deceptively simple, and introduces a function called
+   fscanf which is the "file scanf". The scanf family of functions are the
+   inverse of the printf versions. Where printf printed out data based on
+   a format, scanf reads (or scans) input based on a format.
+
+   There's nothing original in the beginning of the file, so here's what
+   the main is doing:
+
+   ex24.c:24-28
+          Set up some variables we'll need.
+
+   ex24.c:30-32
+          Get your first name using the fgets function, which reads a
+          string from the input (in this case stdin) but makes sure it
+          doesn't overflow the given buffer.
+
+   ex24.c:34-36
+          Same thing for you.last_name, again using fgets.
+
+   ex24.c:38-39
+          Uses fscanf to read an integer from stdin and put it into
+          you.age. You can see that the same format string is used as
+          printf to print an integer. You should also see that you have to
+          give the address of you.age so that fscanf has a pointer to it
+          and can modify it. This is a good example of using a pointer to
+          a piece of data as an "out parameter".
+
+   ex24.c:41-45
+          Print out all the options available for eye color, with a
+          matching number that works with the EyeColor enum above.
+
+   ex24.c:47-50
+          Using fscanf again, get a number for the you.eyes, but make sure
+          the input is valid. This is important because someone can enter
+          a value outside the EYE_COLOR_NAMES array and cause a segfault.
+
+   ex24.c:52-53
+          Get how much you make as a float for the you.income.
+
+   ex24.c:55-61
+          Print everything out so you can see if you have it right. Notice
+          that EYE_COLOR_NAMES is used to print out what the EyeColor enum
+          is actually called.
+
+25.1 What You Should See
+
+   When you run this program you should see your inputs being properly
+   converted. Make sure you try to give it bogus input too so you can see
+   how it protects against the input.
+     __________________________________________________________________
+
+   Source 64: ex24 output
+   1$ make ex24
+   2cc -Wall -g -DNDEBUG    ex24.c   -o ex24
+   3$ ./ex24
+   4What's your First Name? Zed
+   5What's your Last Name? Shaw
+   6How old are you? 37
+   7What color are your eyes:
+   81) Blue
+   92) Green
+   103) Brown
+   114) Black
+   125) Other
+   13> 1
+   14How much do you make an hour? 1.2345
+   15----- RESULTS -----
+   16First Name: Zed
+   17Last Name: Shaw
+   18Age: 37
+   19Eyes: Blue
+   20Income: 1.234500
+     __________________________________________________________________
+
+25.2 How To Break It
+
+   This is all fine and good, but the real important part of this exercise
+   is how scanf actually sucks. It's fine for simple conversion of
+   numbers, but fails for strings because it's difficult to tell scanf how
+   big a buffer is before you read. There's also a problem with a function
+   like gets (not fgets, the non-f version) which we avoided. That
+   function has no idea how big the input buffer is at all and will just
+   trash your program.
+
+   To demonstrate the problems with fscanf and strings, change the lines
+   that use fgets so they are fscanf(stdin, "%50s", you.first_name) and
+   then try to use it again. Notice it seems to read too much and then eat
+   your enter key? This doesn't do what you think it does, and really
+   rather than deal with weird scanf issues, just use fgets.
+
+   Next, change the fgets to use gets, then bust out your valgrind and do
+   this: valgrind ./ex24 < /dev/urandom to feed random garbage into your
+   program. This is called "fuzzing" your program, and it is a good way to
+   find input bugs. In this case, you're feeding garbage from the
+   /dev/urandom file, and then watching it crash. On some platforms you
+   may have to do this a few times, or even adjust the MAX_DATA define so
+   it's small enough.
+
+   The gets function is so bad that some platforms actually warn you when
+   the program runs that you're using gets. You should never use this
+   function, ever.
+
+   Finally, take the input for you.eyes and remove the check that the
+   number given is within the right range. Then feed it bad numbers like
+   -1 or 1000. Do this under Valgrind too so you can see what happens.
+
+25.3 The I/O Functions
+
+   This is a short list of various I/O functions that you should look up
+   and create index cards that have the function name, what it does, and
+   all the variants similar to it.
+
+    1. fscanf
+    2. fgets
+    3. fopen
+    4. freopen
+    5. fdopen
+    6. fclose
+    7. fcloseall
+    8. fgetpos
+    9. fseek
+   10. ftell
+   11. rewind
+   12. fprintf
+   13. fwrite
+   14. fread
+
+   Go through these and memorize the different variants and what they do.
+   For example, for the card on fscanf you'll have scanf, sscanf, vscanf,
+   etc. and then what each of those do on the back.
+
+   Finally, to get the information you need for these cards, use man to
+   read the help for it. For example, the page for fscanf comes from
+   man fscanf.
+
+25.4 Extra Credit
+
+    1. Rewrite this to not use fscanf at all. You'll need to use functions
+       like atoi to convert the input strings to numbers.
+    2. Change this to use plain scanf instead of fscanf to see what the
+       difference is.
+    3. Fix it so that the input names get stripped of the trailing newline
+       characters and any whitespace.
+    4. Use scanf to write a function that reads a character at a time and
+       files in the names but doesn't go past the end. Make this function
+       generic so it can take a size for the string, and make sure you end
+       the string with '\0' no matter what.
+
+   [next] [prev] [prev-tail] [front] [up]
+     __________________________________________________________________
+
+   Please enable JavaScript to view the comments powered by Disqus.
+
+Take An Online Video Course
+
+   You can sign up for a video course at:
+
+   http://www.udemy.com/learn-c-the-hard-way/
+
+   This course is currently being built at the same time that the book is
+   being built, but if you sign up now then you get early access to both
+   the videos and PDF of the book.
+
+Related Books
+
+   You might want to check out these other books in the series:
+    1. Learn Ruby The Hard Way
+    2. Learn Regex The Hard Way
+    3. Learn SQL The Hard Way
+    4. Learn C The Hard Way
+    5. Learn Python The Hard Way
+
+   I'll be referencing other books shortly.
+
+   Copyright 2011 Zed A. Shaw. All Rights Reserved.

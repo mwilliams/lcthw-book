@@ -1,0 +1,184 @@
+
+   Learn C The Hard Way A Learn Code The Hard Way Book
+     * Book
+     * Comments
+     * Video Courses
+     * Related Books
+
+   [next] [prev] [prev-tail] [tail] [up]
+
+Chapter 15
+Exercise 14: Writing And Using Functions
+
+   Until now you've just used functions that are part of the stdio.h
+   header file. In this exercise you will write some functions and use
+   some other functions.
+     __________________________________________________________________
+
+   Source 37: ex14.c
+   1  #include <stdio.h>
+   2  #include <ctype.h>
+   3
+   4  // forward declarations
+   5  int can_print_it(char ch);
+   6  void print_letters(char arg[]);
+   7
+   8  void print_arguments(int argc, char *argv[])
+   9  {
+   10      int i = 0;
+   11
+   12      for(i = 0; i < argc; i++) {
+   13          print_letters(argv[i]);
+   14      }
+   15  }
+   16
+   17  void print_letters(char arg[])
+   18  {
+   19      int i = 0;
+   20
+   21      for(i = 0; arg[i] != '\0'; i++) {
+   22          char ch = arg[i];
+   23
+   24          if(can_print_it(ch)) {
+   25              printf("'%c' == %d ", ch, ch);
+   26          }
+   27      }
+   28
+   29      printf("\n");
+   30  }
+   31
+   32  int can_print_it(char ch)
+   33  {
+   34      return isalpha(ch) || isblank(ch);
+   35  }
+   36
+   37
+   38  int main(int argc, char *argv[])
+   39  {
+   40      print_arguments(argc, argv);
+   41      return 0;
+   42  }
+     __________________________________________________________________
+
+   In this example you're creating functions to print out the characters
+   and ASCII codes for any that are "alpha" or "blanks". Here's the
+   breakdown:
+
+   ex14.c:2
+          Include a new header file so we can gain access to isalpha and
+          isblank.
+
+   ex14.c:5-6
+          Tell C that you will be using some functions later in your
+          program, without having to actually define them. This is a
+          "forward declaration" and it solves the chicken-and-egg problem
+          of needing to use a function before you've defined it.
+
+   ex14.c:8-15
+          Define the print_arguments which knows how to print the same
+          array of strings that main typically gets.
+
+   ex14.c:17-30
+          Define the next function print_letters that is called by
+          print_arguments and knows how to print each of the characters
+          and their codes.
+
+   ex14.c:32-35
+          Define can_print_it which simply returns the truth value (0 or
+          1) of isalpha(ch) || isblank(ch) back to its caller
+          print_letters.
+
+   ex14.c:38-42
+          Finally main simply calls print_arguments to make the whole
+          chain of function calls go.
+
+   I shouldn't have to describe what's in each function because it's all
+   things you've ran into before. What you should be able to see though is
+   that I've simply defined functions the same way you've been defining
+   main. The only difference is you have to help C out by telling it ahead
+   of time if you're going to use functions it hasn't encountered yet in
+   the file. That's what the "forward declarations" at the top do.
+
+15.1 What You Should See
+
+   To play with this program you just feed it different command line
+   arguments, which get passed through your functions. Here's me playing
+   with it to demonstrate:
+     __________________________________________________________________
+
+   Source 38: ex14 output
+   1$ make ex14
+   2cc -Wall -g    ex14.c   -o ex14
+   3
+   4$ ./ex14
+   5'e' == 101 'x' == 120
+   6
+   7$ ./ex14 hi this is cool
+   8'e' == 101 'x' == 120
+   9'h' == 104 'i' == 105
+   10't' == 116 'h' == 104 'i' == 105 's' == 115
+   11'i' == 105 's' == 115
+   12'c' == 99 'o' == 111 'o' == 111 'l' == 108
+   13
+   14$ ./ex14 "I go 3 spaces"
+   15'e' == 101 'x' == 120
+   16'I' == 73 ' ' == 32 'g' == 103 'o' == 111 ' ' == 32 ' ' == 32 's' ==
+   115 'p' == 112 'a' == 97 'c' == 99 'e' == 101 's' == 115
+   17$
+     __________________________________________________________________
+
+   The isalpha and isblank do all the work of figuring out if the given
+   character is a letter or a blank. When I do the last run it prints
+   everything but the '3' character, since that is a digit.
+
+15.2 How To Break It
+
+   There's two different kinds of "breaking" in this program:
+
+    1. Confuse the compiler by removing the forward declarations so it
+       complains about can_print_it and print_letters.
+    2. When you call print_arguments inside main try adding 1 to argc so
+       that it goes past the end of the argv array.
+
+15.3 Extra Credit
+
+    1. Rework these functions so that you have fewer functions. For
+       example, do you really need can_print_it?
+    2. Have print_arguments figure how long each argument string is using
+       the strlen function, and then pass that length to print_letters.
+       Then, rewrite print_letters so it only processes this fixed length
+       and doesn't rely on the '\0' terminator.
+    3. Use man to lookup information on isalpha and isblank. Use the other
+       similar functions to print out only digits or other characters.
+    4. Go read about how different people like to format their functions.
+       Never use the "K&R syntax" as it's antiquated and confusing, but
+       understand what it's doing in case you run into someone who likes
+       it.
+
+   [next] [prev] [prev-tail] [front] [up]
+     __________________________________________________________________
+
+   Please enable JavaScript to view the comments powered by Disqus.
+
+Take An Online Video Course
+
+   You can sign up for a video course at:
+
+   http://www.udemy.com/learn-c-the-hard-way/
+
+   This course is currently being built at the same time that the book is
+   being built, but if you sign up now then you get early access to both
+   the videos and PDF of the book.
+
+Related Books
+
+   You might want to check out these other books in the series:
+    1. Learn Ruby The Hard Way
+    2. Learn Regex The Hard Way
+    3. Learn SQL The Hard Way
+    4. Learn C The Hard Way
+    5. Learn Python The Hard Way
+
+   I'll be referencing other books shortly.
+
+   Copyright 2011 Zed A. Shaw. All Rights Reserved.

@@ -1,0 +1,476 @@
+
+   Learn C The Hard Way A Learn Code The Hard Way Book
+     * Book
+     * Comments
+     * Video Courses
+     * Related Books
+
+   [next] [prev] [prev-tail] [tail] [up]
+
+Chapter 44
+Exercise 43: A Simple Statistics Engine
+
+   This is a simple algorithm I use for collecting summary statistics
+   "online", or without storing all of the samples. I use this in any
+   software that needs to keep some statistics such as mean, standard
+   deviation, and sum, but where I can't store all the samples needed.
+   Instead I can just store the rolling results of the calculations which
+   is only 5 numbers.
+
+44.1 Rolling Standard Deviation And Mean
+
+   The first thing you need is a sequence of samples. This can be anything
+   from time to complete a task, numbers of times someone accesses
+   something, or even star ratings on a website. Doesn't really matter
+   what, just so long as you have a stream of numbers and you want to know
+   the following summary statistics about them:
+
+   sum
+          This is the total of all the numbers added together.
+
+   sum squared (sumsq)
+          This is the sum of the square of each number.
+
+   count (n)
+          This is the number samples you've taken.
+
+   min
+          This is the smallest sample you've seen.
+
+   max
+          This is the largest sample you've seen.
+
+   mean
+          This is the most likely middle number. It's not actually the
+          middle, since that's the median, but it's an accepted
+          approximation for it.
+
+   stddev
+          Calculated using sqrt(sumsq-(sum*mean))/(n-1))) where sqrt is
+          the square root function in the math.h header.
+
+   I will confirm this calculation works using R since I know R gets these
+   right:
+     __________________________________________________________________
+
+   Source 142: Standard Deviation in R
+   1  > s <- runif(n=10, max=10)
+   2  > s
+   3   [1] 6.1061334 9.6783204 1.2747090 8.2395131 0.3333483 6.9755066 1.0
+   626275
+   4   [8] 7.6587523 4.9382973 9.5788115
+   5  > summary(s)
+   6     Min. 1st Qu.  Median    Mean 3rd Qu.    Max.
+   7   0.3333  2.1910  6.5410  5.5850  8.0940  9.6780
+   8  > sd(s)
+   9  [1] 3.547868
+   10  > sum(s)
+   11  [1] 55.84602
+   12  > sum(s * s)
+   13  [1] 425.1641
+   14  > sum(s) * mean(s)
+   15  [1] 311.8778
+   16  > sum(s * s) - sum(s) * mean(s)
+   17  [1] 113.2863
+   18  > (sum(s * s) - sum(s) * mean(s)) / (length(s) - 1)
+   19  [1] 12.58737
+   20  > sqrt((sum(s * s) - sum(s) * mean(s)) / (length(s) - 1))
+   21  [1] 3.547868
+   22  >
+     __________________________________________________________________
+
+   You don't need to know R, just follow along while I explain how I'm
+   breaking this down to check my math:
+
+   lines 1-4
+          I use the function runif to get a "random uniform" distribution
+          of numbers, then print them out. I'll use these in the unit test
+          later.
+
+   lines 5-7
+          Here's the summary, so you can see the values that R calculates
+          for these.
+
+   lines 8-9
+          This is the stddev using the sd function.
+
+   lines 10-11
+          Now I begin to build this calculation manually, first by getting
+          the sum.
+
+   lines 12-13
+          Next piece of the stdev formula is the sumsq, which I can get
+          with sum(s * s) which tells R to multiple the whole s list by
+          itself and then sum those.^1
+
+   lines 14-15
+          Looking at the formula, I then need the sum multiplied by mean,
+          so I do sum(s) * mean(s).
+
+   lines 16-17
+          I then combine the sumsq with this to get
+          sum(s * s) - sum(s) * mean(s).
+
+   lines 18-19
+          That needs to be divided by n - 1, so I do
+          (sum(s * s) - sum(s) * mean(s)) / (length(s) - 1).
+
+   lines 20-21
+          Finally, I sqrt that and I get 3.547868 which matches the number
+          R gave me for sd above.
+
+44.2 Implemention
+
+   That's how you calculate the stddev, so now I can make some simple code
+   to implement this calculation.
+     __________________________________________________________________
+
+   Source 143: src/lcthw/stats.h
+   1  #ifndef lcthw_stats_h
+   2  #define lctwh_stats_h
+   3
+   4  typedef struct Stats {
+   5      double sum;
+   6      double sumsq;
+   7      unsigned long n;
+   8      double min;
+   9      double max;
+   10  } Stats;
+   11
+   12  Stats *Stats_recreate(double sum, double sumsq, unsigned long n, do
+   uble min, double max);
+   13
+   14  Stats *Stats_create();
+   15
+   16  double Stats_mean(Stats *st);
+   17
+   18  double Stats_stddev(Stats *st);
+   19
+   20  void Stats_sample(Stats *st, double s);
+   21
+   22  void Stats_dump(Stats *st);
+   23
+   24  #endif
+     __________________________________________________________________
+
+   Here you can see I've put the calculations I need to store in a struct
+   and then I have functions for sampling and getting the numbers.
+   Implementing this is then just an exercise in converting the math:
+     __________________________________________________________________
+
+   Source 144: src/lcthw/stats.c
+   1  #include <math.h>
+   2  #include <lcthw/stats.h>
+   3  #include <stdlib.h>
+   4  #include <lcthw/dbg.h>
+   5
+   6  Stats *Stats_recreate(double sum, double sumsq, unsigned long n, dou
+   ble min, double max)
+   7  {
+   8      Stats *st = malloc(sizeof(Stats));
+   9      check_mem(st);
+   10
+   11      st->sum = sum;
+   12      st->sumsq = sumsq;
+   13      st->n = n;
+   14      st->min = min;
+   15      st->max = max;
+   16
+   17      return st;
+   18
+   19  error:
+   20      return NULL;
+   21  }
+   22
+   23  Stats *Stats_create()
+   24  {
+   25      return Stats_recreate(0.0, 0.0, 0L, 0.0, 0.0);
+   26  }
+   27
+   28  double Stats_mean(Stats *st)
+   29  {
+   30      return st->sum / st->n;
+   31  }
+   32
+   33  double Stats_stddev(Stats *st)
+   34  {
+   35     return sqrt( (st->sumsq - ( st->sum * st->sum / st->n)) / (st->n
+    - 1) );
+   36  }
+   37
+   38  void Stats_sample(Stats *st, double s)
+   39  {
+   40      st->sum += s;
+   41      st->sumsq += s * s;
+   42
+   43      if(st->n == 0) {
+   44          st->min = s;
+   45          st->max = s;
+   46      } else {
+   47          if(st->min > s) st->min = s;
+   48          if(st->max < s) st->max = s;
+   49      }
+   50
+   51      st->n += 1;
+   52  }
+   53
+   54  void Stats_dump(Stats *st)
+   55  {
+   56      fprintf(stderr, "sum: %f, sumsq: %f, n: %ld, min: %f, max: %f,
+   mean: %f, stddev: %f",
+   57              st->sum, st->sumsq, st->n, st->min, st->max,
+   58              Stats_mean(st), Stats_stddev(st));
+   59  }
+     __________________________________________________________________
+
+   Here's what each function in stats.c does:
+
+   Stats_recreate
+          I'll want to load these numbers from some kind of database, and
+          this function let's me recreate a Stats struct.
+
+   Stats_create
+          Simply called Stats_recreate with all 0 values.
+
+   Stats_mean
+          Using the sum and n it gives the mean.
+
+   Stats_stddev
+          Implements the formula I worked out, with the only difference
+          being that I calculate the mean with st->sum / st->n in this
+          formula instead of calling Stats_mean.
+
+   Stats_sample
+          This does the work of maintaining the numbers in the Stats
+          struct. When you give it the first value it sees that n is 0 and
+          sets min and max accordingly. Every call after that keeps
+          increasing sum, sumsq, and n. It then figures out if this new
+          sample is a new min or max.
+
+   Stats_dump
+          Simple debug function that dumps the stats so you can view them.
+
+   The last thing I need to do is confirm that this math is correct. I'm
+   going to use my numbers and calculations from my R session to create a
+   unit test that confirms I'm getting the right results.
+     __________________________________________________________________
+
+   Source 145: tests/stats_tests.c
+   1  #include "minunit.h"
+   2  #include <lcthw/stats.h>
+   3  #include <math.h>
+   4
+   5  const int NUM_SAMPLES = 10;
+   6  double samples[] = {
+   7      6.1061334, 9.6783204, 1.2747090, 8.2395131, 0.3333483,
+   8      6.9755066, 1.0626275, 7.6587523, 4.9382973, 9.5788115
+   9  };
+   10
+   11  Stats expect = {
+   12      .sumsq = 425.1641,
+   13      .sum = 55.84602,
+   14      .min = 0.333,
+   15      .max = 9.678,
+   16      .n = 10,
+   17  };
+   18  double expect_mean = 5.584602;
+   19  double expect_stddev = 3.547868;
+   20
+   21  #define EQ(X,Y,N) (round((X) * pow(10, N)) == round((Y) * pow(10, N
+   )))
+   22
+   23  char *test_operations()
+   24  {
+   25      int i = 0;
+   26      Stats *st = Stats_create();
+   27      mu_assert(st != NULL, "Failed to create stats.");
+   28
+   29      for(i = 0; i < NUM_SAMPLES; i++) {
+   30          Stats_sample(st, samples[i]);
+   31      }
+   32
+   33      Stats_dump(st);
+   34
+   35      mu_assert(EQ(st->sumsq, expect.sumsq, 3), "sumsq not valid");
+   36      mu_assert(EQ(st->sum, expect.sum, 3), "sum not valid");
+   37      mu_assert(EQ(st->min, expect.min, 3), "min not valid");
+   38      mu_assert(EQ(st->max, expect.max, 3), "max not valid");
+   39      mu_assert(EQ(st->n, expect.n, 3), "max not valid");
+   40      mu_assert(EQ(expect_mean, Stats_mean(st), 3), "mean not valid")
+   ;
+   41      mu_assert(EQ(expect_stddev, Stats_stddev(st), 3), "stddev not v
+   alid");
+   42
+   43      return NULL;
+   44  }
+   45
+   46  char *test_recreate()
+   47  {
+   48      Stats *st = Stats_recreate(expect.sum, expect.sumsq, expect.n,
+   expect.min, expect.max);
+   49
+   50      mu_assert(st->sum == expect.sum, "sum not equal");
+   51      mu_assert(st->sumsq == expect.sumsq, "sumsq not equal");
+   52      mu_assert(st->n == expect.n, "n not equal");
+   53      mu_assert(st->min == expect.min, "min not equal");
+   54      mu_assert(st->max == expect.max, "max not equal");
+   55      mu_assert(EQ(expect_mean, Stats_mean(st), 3), "mean not valid")
+   ;
+   56      mu_assert(EQ(expect_stddev, Stats_stddev(st), 3), "stddev not v
+   alid");
+   57
+   58      return NULL;
+   59  }
+   60
+   61  char *all_tests()
+   62  {
+   63      mu_suite_start();
+   64
+   65      mu_run_test(test_operations);
+   66      mu_run_test(test_recreate);
+   67
+   68      return NULL;
+   69  }
+   70
+   71  RUN_TESTS(all_tests);
+     __________________________________________________________________
+
+   There's nothing new in this unit test, except maybe the EQ macro. I
+   felt lazy and didn't want to look up the standard way to tell if two
+   double values are close, so I made this macro. The problem with double
+   is that equality assumes totally equal, but I'm using two different
+   systems with slightly different rounding errors. The solution is to say
+   I want the numbers to be "equal to X decimal places".
+
+   I do this with EQ by raising the number to a power of 10, then using
+   the round function to get an integer. This is a simple way to round to
+   N decimal places and compare the results as an integer. I'm sure
+   there's a billion other ways to do the same thing, but this works for
+   now.
+
+   The expected results are then in a Statsstruct and then I simply make
+   sure that the number I get is close to the number R gave me.
+
+44.3 How To Use It
+
+   You can use the standard deviation and mean to determine if a new
+   sample is "interesting", or you can use this to collect statistics on
+   statistics. The first one is easy for people to understand so I'll
+   explain that quickly using an example for login times.
+
+   Imagine you're tracking how long users spend on a server and you're
+   using stats to analyze it. Every time someone logs in, you keep track
+   of how long they are there, then you call Stats_sample. I'm looking for
+   people are a on "too long" and also people who seem to be on "too
+   quickly".
+
+   Instead of setting specific levels, what I'd do is compare how long
+   someone is on with the mean (plus or minus) 2 * stddev range. I get the
+   mean and 2 * stddev, and consider login times to be "interesting" if
+   they are outside these two ranges. Since I'm keeping these statistics
+   using a rolling algorithm this is a very fast calculation and I can
+   then have the software flag the users who are outside of this range.
+
+   This doesn't necessarily point out people who are behaving badly, but
+   instead it flags potential problems that you can review to see what's
+   going on. It's also doing it based on the behavior of all the users,
+   which avoids the problem where you pick some arbitrary number that's
+   not based on what's really happening.
+
+   The general rule you can get from this is that the mean (plus or minus)
+   2 * stddev is an estimate of where 90% of the values are expected to
+   fall, and that anything outside those ranges is interesting.
+
+   The second way to use these statistics is to go meta and calculate them
+   for other Stats calculations. You basically do your Stats_sample like
+   normal, but then you run Stats_sample on the min, max, n, mean, and
+   stddev on that sample. This gives a two-level measurement, and let's
+   you compare samples of samples.
+
+   Confusing right? I'll continue my example above and add that you have
+   100 servers that each hold a different application. You are already
+   tracking user's login times for each application server, but you want
+   to compare all 100 applications and flag any users that are logging in
+   "too much" on all of them. Easiest way to do that is each time someone
+   logs in, calculate the new login stats, then add that Stats structs
+   elements to a second Stat.
+
+   What you end up with is a series of stats that can be named like this:
+
+   mean of means
+          This is a full Stats struct that gives you mean and stddev of
+          the means of all the servers. Any server or user who is outside
+          of this is work looking at on a global level.
+
+   mean of stddevs
+          Another Stats struct that produces the statistics of how all of
+          the servers range. You can then analyze each server and see if
+          any of them have unusually wide ranging numbers by comparing
+          their stddev to this mean of stddevs statistic.
+
+   You could do them all, but these are the most useful. If you wanted to
+   then monitor servers for erratic login times you'd do this:
+
+    1. User John logs into and out of server A. Grab server A's stats,
+       update them.
+    2. Grab the mean of means stats, and take A's mean and add it as a
+       sample. I'll call this m_of_m.
+    3. Grab the mean of stddevs stats, and add A's stddev to it as a
+       sample. I'll call this m_of_s.
+    4. If A's mean is outside of m_of_m.mean + 2 * m_of_m.stddev then flag
+       it as possibly having a problem.
+    5. If A's stddev is outside of m_of_s.mean + 2 * m_of_s.stddev then
+       flag it as possible behaving too erratically.
+    6. Finally, if John's login time is outside of A's range, or A's
+       m_of_m range, then flag it as interesting.
+
+   Using this "mean of means" and "mean of stddevs" calculation you can do
+   efficient tracking of many metrics with a minimal amount of processing
+   and storage.
+
+44.4 Extra Credit
+
+    1. Convert the Stats_stddev and Stats_mean to static inline functions
+       in the stats.h file instead of in the stats.c file.
+    2. Use this code to write a performance test of the
+       string_algos_test.c. Make it optional and have it run the base test
+       as a series of samples then report the results.
+    3. Write a version of this in another programming language you know.
+       Confirm that this version is correct based on what I have here.
+    4. Write a little program that can take a file full of numbers and
+       spit these statistics out for them.
+    5. Make the program accept a table of data that has headers on one
+       line, then all the other numbers on lines after it separated by any
+       number of spaces. Your program should then print out these stats
+       for each column by the header name.
+
+   ^1The power of R is being able to do math on entire data structures
+   like this.
+
+   [next] [prev] [prev-tail] [front] [up]
+     __________________________________________________________________
+
+   Please enable JavaScript to view the comments powered by Disqus.
+
+Take An Online Video Course
+
+   You can sign up for a video course at:
+
+   http://www.udemy.com/learn-c-the-hard-way/
+
+   This course is currently being built at the same time that the book is
+   being built, but if you sign up now then you get early access to both
+   the videos and PDF of the book.
+
+Related Books
+
+   You might want to check out these other books in the series:
+    1. Learn Ruby The Hard Way
+    2. Learn Regex The Hard Way
+    3. Learn SQL The Hard Way
+    4. Learn C The Hard Way
+    5. Learn Python The Hard Way
+
+   I'll be referencing other books shortly.
+
+   Copyright 2011 Zed A. Shaw. All Rights Reserved.

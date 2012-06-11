@@ -1,0 +1,171 @@
+
+   Learn C The Hard Way A Learn Code The Hard Way Book
+     * Book
+     * Comments
+     * Video Courses
+     * Related Books
+
+   [next] [prev] [prev-tail] [tail] [up]
+
+Chapter 4
+Exercise 3: Formatted Printing
+
+   Keep that Makefile around since it'll help you spot errors and we'll be
+   adding to it when we need to automate more things.
+
+   Many programming languages use the C way of formatting output, so let's
+   try it:
+     __________________________________________________________________
+
+   Source 12: ex3.c
+   1  #include <stdio.h>
+   2
+   3  int main()
+   4  {
+   5      int age = 10;
+   6      int height = 72;
+   7
+   8      printf("I am %d years old.\n", age);
+   9      printf("I am %d inches tall.\n", height);
+   10
+   11      return 0;
+   12  }
+     __________________________________________________________________
+
+   Once you have that, do the usual make ex3 to build it and run it. Make
+   sure you fix all warnings.
+
+   This exercise has a whole lot going on in a small amount of code so
+   let's break it down:
+    1. First you're including another "header file" called stdio.h. This
+       tells the compiler that you're going to use the "standard
+       Input/Output functions". One of those is printf.
+    2. Then you're using a variable named age and setting it to 10.
+    3. Next you're using a variable height and setting it to 72.
+    4. Then you use the printf function to print the age and height of the
+       tallest 10 year old on the planet.
+    5. In the printf you'll notice you're passing in a string, and it's a
+       format string like in many other languages.
+    6. After this format string, you put the variables that should be
+       "replaced" into the format string by printf.
+
+   The result of doing this is you are handing printf some variables and
+   it is constructing a new string then printing that new string to the
+   terminal.
+
+4.1 What You Should See
+
+   When you do the whole build you should see something like this:
+     __________________________________________________________________
+
+   Source 13: Building and running ex3.c
+   1$ make ex3
+   2cc -Wall -g    ex3.c   -o ex3
+   3$ ./ex3
+   4I am 10 years old.
+   5I am 72 inches tall.
+   6$
+     __________________________________________________________________
+
+   Pretty soon I'm going to stop telling you to run make and what the
+   build looks like, so please make sure you're getting this right and
+   that it's working.
+
+4.2 External Research
+
+   In the Extra Credit section of each exercise I may have you go find
+   information on your own and figure things out. This is an important
+   part of being a self-sufficient programmer. If you constantly run to
+   ask someone a question before trying to figure it out first then you
+   never learn to solve problems independently. This leads to you never
+   building confidence in your skills and always needing someone else
+   around to do your work.
+
+   The way you break this habit is to force yourself to try to answer your
+   own questions first, and to confirm that your answer is right. You do
+   this by trying to break things, experimenting with your possible
+   answer, and doing your own research.
+
+   For this exercise I want you to go online and find out all of the
+   printf escape codes and format sequences. Escape codes are \n or \t
+   that let you print a newline or tab (respectively). Format sequences
+   are the %s or %d that let you print a string or a integer. Find all of
+   the ones available, how you can modify them, and what kind of
+   "precisions" and widths you can do.
+
+   From now on, these kinds of tasks will be in the Extra Credit and you
+   should do them.
+
+4.3 How To Break It
+
+   Try a few of these ways to break this program, which may or may not
+   cause it to crash on your computer:
+
+    1. Take the age variable out of the first printf call then recompile.
+       You should get a couple of warnings.
+    2. Run this new program and it will either crash, or print out a
+       really crazy age.
+    3. Put the printf back the way it was, and then don't set age to an
+       initial value by changing that line to int age; then rebuild and
+       run again.
+     __________________________________________________________________
+
+   Source 14: Breaking ex3.c
+   1# edit ex3.c to break printf
+   2$ make ex3
+   3cc -Wall -g    ex3.c   -o ex3
+   4ex3.c: In function 'main':
+   5ex3.c:8: warning: too few arguments for format
+   6ex3.c:5: warning: unused variable 'age'
+   7$ ./ex3
+   8I am -919092456 years old.
+   9I am 72 inches tall.
+   10# edit ex3.c again to fix printf, but don't init age
+   11$ make ex3
+   12cc -Wall -g    ex3.c   -o ex3
+   13ex3.c: In function 'main':
+   14ex3.c:8: warning: 'age' is used uninitialized in this function
+   15$ ./ex3
+   16I am 0 years old.
+   17I am 72 inches tall.
+   18$
+     __________________________________________________________________
+
+4.4 Extra Credit
+
+    1. Find as many other ways to break ex3.c as you can.
+    2. Run man 3 printf and read about the other '%' format characters you
+       can use. These should look familiar if you used them in other
+       languages (printf is where they come from).
+    3. Add ex3 to your Makefile's all list. Use this to make clean all and
+       build all your exercises so far.
+    4. Add ex3 to your Makefile's clean list as well. Now use make clean
+       will remove it when you need to.
+
+   [next] [prev] [prev-tail] [front] [up]
+     __________________________________________________________________
+
+   Please enable JavaScript to view the comments powered by Disqus.
+
+Take An Online Video Course
+
+   You can sign up for a video course at:
+
+   http://www.udemy.com/learn-c-the-hard-way/
+
+   This course is currently being built at the same time that the book is
+   being built, but if you sign up now then you get early access to both
+   the videos and PDF of the book.
+
+Related Books
+
+   You might want to check out these other books in the series:
+    1. Learn Ruby The Hard Way
+    2. Learn Regex The Hard Way
+    3. Learn SQL The Hard Way
+    4. Learn C The Hard Way
+    5. Learn Python The Hard Way
+
+   I'll be referencing other books shortly.
+
+   Copyright 2011 Zed A. Shaw. All Rights Reserved.

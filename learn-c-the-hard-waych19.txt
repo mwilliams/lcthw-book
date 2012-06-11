@@ -1,0 +1,344 @@
+
+   Learn C The Hard Way A Learn Code The Hard Way Book
+     * Book
+     * Comments
+     * Video Courses
+     * Related Books
+
+   [next] [prev] [prev-tail] [tail] [up]
+
+Chapter 19
+Exercise 18: Pointers To Functions
+
+   Functions in C are actually just pointers to a spot in the program
+   where some code exists. Just like you've been creating pointers to
+   structs, strings, and arrays, you can point a pointer at a function
+   too. The main use for this is to pass "callbacks" to other functions,
+   or to simulate classes and objects. In this exercise we'll do some
+   callbacks, and in the next one we'll make a simple object system.
+
+   The format of a function pointer goes like this:
+
+   int (*POINTER_NAME)(int a, int b)
+
+   A way to remember how to write one is to do this:
+    1. Write a normal function declaration: int callme(int a, int b)
+    2. Wrap function name with pointer syntax: int (*callme)(int a, int b)
+    3. Change the name to the pointer name:
+       int (*compare_cb)(int a, int b)
+
+   The key thing to remember is, when you're done with this, the variable
+   name for the pointer is called compare_cb and then you use it just like
+   it's a function. This is similar to how pointers to arrays can be used
+   just like the arrays they point to. Pointers to functions can be used
+   like the functions they point to but with a different name.
+     __________________________________________________________________
+
+   Source 45: Using A Raw Function Pointer
+   1    int (*tester)(int a, int b) = sorted_order;
+   2    printf("TEST: %d is same as %d\n", tester(2, 3), sorted_order(2, 3
+   ));
+     __________________________________________________________________
+
+   This will work even if the function pointer returns a pointer to
+   something:
+    1. Write it: char *make_coolness(int awesome_levels)
+    2. Wrap it: char *(*make_coolness)(int awesome_levels)
+    3. Rename it: char *(*coolness_cb)(int awesome_levels)
+
+   The next problem to solve with using function pointers is that it's
+   hard to give them as parameters to a function, like when you want to
+   pass the function callback to another function. The solution to this is
+   to use typedef which is a C keyword for making new names for other more
+   complex types. The only thing you need to do is put typedef before the
+   same function pointer syntax, and then after that you can use the name
+   like it's a type. I demonstrate this in the following exercise code:
+     __________________________________________________________________
+
+   Source 46: ex18.c
+   1  #include <stdio.h>
+   2  #include <stdlib.h>
+   3  #include <assert.h>
+   4  #include <errno.h>
+   5  #include <string.h>
+   6
+   7  /** Our old friend die from ex17. */
+   8  void die(const char *message)
+   9  {
+   10      if(errno) {
+   11          perror(message);
+   12      } else {
+   13          printf("ERROR: %s\n", message);
+   14      }
+   15
+   16      exit(1);
+   17  }
+   18
+   19  // a typedef creates a fake type, in this
+   20  // case for a function pointer
+   21  typedef int (*compare_cb)(int a, int b);
+   22
+   23  /**
+   24   * A classic bubble sort function that uses the
+   25   * compare_cb to do the sorting.
+   26   */
+   27  int *bubble_sort(int *numbers, int count, compare_cb cmp)
+   28  {
+   29      int temp = 0;
+   30      int i = 0;
+   31      int j = 0;
+   32      int *target = malloc(count * sizeof(int));
+   33
+   34      if(!target) die("Memory error.");
+   35
+   36      memcpy(target, numbers, count * sizeof(int));
+   37
+   38      for(i = 0; i < count; i++) {
+   39          for(j = 0; j < count - 1; j++) {
+   40              if(cmp(target[j], target[j+1]) > 0) {
+   41                  temp = target[j+1];
+   42                  target[j+1] = target[j];
+   43                  target[j] = temp;
+   44              }
+   45          }
+   46      }
+   47
+   48      return target;
+   49  }
+   50
+   51  int sorted_order(int a, int b)
+   52  {
+   53      return a - b;
+   54  }
+   55
+   56  int reverse_order(int a, int b)
+   57  {
+   58      return b - a;
+   59  }
+   60
+   61  int strange_order(int a, int b)
+   62  {
+   63      if(a == 0 || b == 0) {
+   64          return 0;
+   65      } else {
+   66          return a % b;
+   67      }
+   68  }
+   69
+   70  /**
+   71   * Used to test that we are sorting things correctly
+   72   * by doing the sort and printing it out.
+   73   */
+   74  void test_sorting(int *numbers, int count, compare_cb cmp)
+   75  {
+   76      int i = 0;
+   77      int *sorted = bubble_sort(numbers, count, cmp);
+   78
+   79      if(!sorted) die("Failed to sort as requested.");
+   80
+   81      for(i = 0; i < count; i++) {
+   82          printf("%d ", sorted[i]);
+   83      }
+   84      printf("\n");
+   85
+   86      free(sorted);
+   87  }
+   88
+   89
+   90  int main(int argc, char *argv[])
+   91  {
+   92      if(argc < 2) die("USAGE: ex18 4 3 1 5 6");
+   93
+   94      int count = argc - 1;
+   95      int i = 0;
+   96      char **inputs = argv + 1;
+   97
+   98      int *numbers = malloc(count * sizeof(int));
+   99      if(!numbers) die("Memory error.");
+   100
+   101      for(i = 0; i < count; i++) {
+   102          numbers[i] = atoi(inputs[i]);
+   103      }
+   104
+   105      test_sorting(numbers, count, sorted_order);
+   106      test_sorting(numbers, count, reverse_order);
+   107      test_sorting(numbers, count, strange_order);
+   108
+   109      free(numbers);
+   110
+   111      return 0;
+   112  }
+     __________________________________________________________________
+
+   In this program you're creating a dynamic sorting algorithm that can
+   sort an array of integers using a comparison callback. Here's the
+   breakdown of this program so you can clearly understand it:
+
+   ex18.c:1-6
+          The usual includes needed for all the functions we call.
+
+   ex18.c:7-17
+          This is the die function from the previous exercise which I'll
+          use to do error checking.
+
+   ex18.c:21
+          This is where the typedef is used, and later I use compare_cb
+          like it's a type similar to int or char in bubble_sort and
+          test_sorting.
+
+   ex18.c:27-49
+          A bubble sort implementation, which is a very inefficient way to
+          sort some integers. This function contains:
+
+        ex18.c:27
+                Here's where I use the typedef for compare_cb as the last
+                parameter cmp. This is now a function that will return a
+                comparison between two integers for sorting.
+
+        ex18.c:29-34
+                The usual creation of variables on the stack, followed by
+                a new array of integers on the heap using malloc. Make
+                sure you understand what count * sizeof(int) is doing.
+
+        ex18.c:38
+                The outer-loop of the bubble sort.
+
+        ex18.c:39
+                The inner-loop of the bubble sort
+
+        ex18.c:40
+                Now I call the cmp callback just like it's a normal
+                function, but instead of being the name of something we
+                defined, it's just a pointer to it. This lets the caller
+                pass in anything they want as long as it matches the
+                "signature" of the compare_cbtypedef.
+
+        ex18.c:41-43
+                The actual swapping operation a bubble sort needs to do
+                what it does.
+
+        ex18.c:48
+                Finally return the newly created and sorted result array
+                target.
+
+   ex18.c:51-68
+          Three different versions of the compare_cb function type, which
+          needs to have the same definition as the typedef we created. The
+          C compiler will complain to you if you get this wrong and say
+          the types don't match.
+
+   ex18.c:74-87
+          This is a tester for the bubble_sort function. You can see now
+          how I'm also using compare_cb to then pass to bubble_sort
+          demonstrating how these can be passed around like any other
+          pointers.
+
+   ex18.c:90-103
+          A simple main function that sets up an array based on integers
+          you pass on the command line, then calls the test_sorting
+          function.
+
+   ex18.c:105-107
+          Finally, you get to see how the compare_cb function pointer
+          typedef is used. I simply call test_sorting but give it the name
+          of sorted_order, reverse_order, and strange_order as the
+          function to use. The C compiler then finds the address of those
+          functions, and makes it a pointer for test_sorting to use. If
+          you look at test_sorting you'll see it then passes each of these
+          to bubble_sort but it actually has no idea what they do, only
+          that they match the compare_cb prototype and should work.
+
+   ex18.c:109
+          Last thing we do is free up the array of numbers we made.
+
+19.1 What You Should See
+
+   Running this program is simple, but try different combinations of
+   numbers, and try even non-numbers to see what it does.
+     __________________________________________________________________
+
+   Source 47: ex18 output
+   1$ make ex18
+   2cc -Wall -g    ex18.c   -o ex18
+   3$ ./ex18 4 1 7 3 2 0 8
+   40 1 2 3 4 7 8
+   58 7 4 3 2 1 0
+   63 4 2 7 1 0 8
+   7$
+     __________________________________________________________________
+
+19.2 How To Break It
+
+   I'm going to have you do something kind of weird to break this. These
+   function pointers are pointers like every other pointer, so they point
+   at blocks of memory. C has this ability to take one pointer and convert
+   it to another so you can process the data in different ways. It's
+   usually not necessary, but to show you how to hack your computer, I
+   want you to add this at the end of test_sorting:
+     __________________________________________________________________
+
+   Source 48: Function Pointer Evil
+   1    unsigned char *data = (unsigned char *)cmp;
+   2
+   3    for(i = 0; i < 25; i++) {
+   4        printf("%0x:", data[i]);
+   5    }
+   6    printf("\n");
+     __________________________________________________________________
+
+   This loop is sort of like converting your function to a string and then
+   printing out it's contents. This won't break your program unless the
+   CPU and OS you're on has a problem with you doing this. What you'll see
+   is a string of hexadecimal numbers after it prints the sorted array:
+     55:48:89:e5:89:7d:fc:89:75:f8:8b:55:fc:8b:45:f8:29:d0:c9:c3:55:48:89:
+   e5:89:
+
+   That should be the raw assembler byte code of the function itself, and
+   you should see they start the same, but then have different endings.
+   It's also possible that this loop isn't getting all of the function or
+   is getting too much and stomping on another piece of the program.
+   Without more analysis you wouldn't know.
+
+19.3 Extra Credit
+
+    1. Get a hex editor and open up ex18, then find this sequence of hex
+       digits that start a function to see if you can find the function in
+       the raw program.
+    2. Find other random things in your hex editor and change them. Rerun
+       your program and see what happens. Changing strings you find are
+       the easiest things to change.
+    3. Pass in the wrong function for the compare_cb and see what the C
+       compiler complains about.
+    4. Pass in NULL and watch your program seriously bite it. Then run
+       Valgrind and see what that reports.
+    5. Write another sorting algorithm, then change test_sorting so that
+       it takes both an arbitrary sort function and the sort function's
+       callback comparison. Use it to test both of your algorithms.
+
+   [next] [prev] [prev-tail] [front] [up]
+     __________________________________________________________________
+
+   Please enable JavaScript to view the comments powered by Disqus.
+
+Take An Online Video Course
+
+   You can sign up for a video course at:
+
+   http://www.udemy.com/learn-c-the-hard-way/
+
+   This course is currently being built at the same time that the book is
+   being built, but if you sign up now then you get early access to both
+   the videos and PDF of the book.
+
+Related Books
+
+   You might want to check out these other books in the series:
+    1. Learn Ruby The Hard Way
+    2. Learn Regex The Hard Way
+    3. Learn SQL The Hard Way
+    4. Learn C The Hard Way
+    5. Learn Python The Hard Way
+
+   I'll be referencing other books shortly.
+
+   Copyright 2011 Zed A. Shaw. All Rights Reserved.

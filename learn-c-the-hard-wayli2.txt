@@ -1,0 +1,54 @@
+
+   Learn C The Hard Way A Learn Code The Hard Way Book
+     * Book
+     * Comments
+     * Video Courses
+     * Related Books
+
+   [next] [prev] [prev-tail] [tail] [up]
+
+Preface
+
+   This is a rough in-progress dump of the book. The grammar will probably
+   be bad, there will be sections missing, but you get to watch me write
+   the book and see how I do things.
+
+   There is a mailing list for the book at lcthw@librelist.com which you
+   can join. I'll be doing announcements as new material is up, and you
+   can ask questions if you get stuck or have comments.
+
+   This list is a discussion list, not an an announce-only list. It's for
+   discussing the book and asking questions.
+
+   Finally, don't forget that I have Learn Python The Hard Way, 2nd
+   Edition which you should read if you can't code yet. LCTHW will not be
+   for beginners, but for people who have at least read LPTHW or know one
+   other programming language.
+
+   [next] [prev] [prev-tail] [front] [up]
+     __________________________________________________________________
+
+   Please enable JavaScript to view the comments powered by Disqus.
+
+Take An Online Video Course
+
+   You can sign up for a video course at:
+
+   http://www.udemy.com/learn-c-the-hard-way/
+
+   This course is currently being built at the same time that the book is
+   being built, but if you sign up now then you get early access to both
+   the videos and PDF of the book.
+
+Related Books
+
+   You might want to check out these other books in the series:
+    1. Learn Ruby The Hard Way
+    2. Learn Regex The Hard Way
+    3. Learn SQL The Hard Way
+    4. Learn C The Hard Way
+    5. Learn Python The Hard Way
+
+   I'll be referencing other books shortly.
+
+   Copyright 2011 Zed A. Shaw. All Rights Reserved.

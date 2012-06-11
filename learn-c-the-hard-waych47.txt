@@ -1,0 +1,545 @@
+
+   Learn C The Hard Way A Learn Code The Hard Way Book
+     * Book
+     * Comments
+     * Video Courses
+     * Related Books
+
+   [next] [prev] [prev-tail] [tail] [up]
+
+Chapter 47
+Exercise 46: Ternary Search Tree
+
+   The final data structure I'll show you is call the TSTree and it's
+   similar to the BSTree except it has three branches low, equal, and
+   high. It's primarily used to just like BSTree and Hashmap to store
+   key/value data, but it is keyed off of the individual characters in the
+   keys. This gives the TSTree some abilities that neither BSTree or
+   Hashmap have.
+
+   How a TSTree works is every key is a string, and it's inserted by
+   walking and building a tree based on the equality of the characters in
+   the string. Start at the root, look at the character for that node, and
+   if lower, equal to, or higher than that then go in that direction. You
+   can see this in the header file:
+     __________________________________________________________________
+
+   Source 151: src/lcthw/tstree.h
+   1  #ifndef _lcthw_TSTree_h
+   2  #define _lctwh_TSTree_h
+   3
+   4  #include <stdlib.h>
+   5  #include <lcthw/darray.h>
+   6
+   7  typedef struct TSTree {
+   8      char splitchar;
+   9      struct TSTree *low;
+   10      struct TSTree *equal;
+   11      struct TSTree *high;
+   12      void *value;
+   13  } TSTree;
+   14
+   15  void *TSTree_search(TSTree *root, const char *key, size_t len);
+   16
+   17  void *TSTree_search_prefix(TSTree *root, const char *key, size_t le
+   n);
+   18
+   19  typedef void (*TSTree_traverse_cb)(void *value, void *data);
+   20
+   21  TSTree *TSTree_insert(TSTree *node, const char *key, size_t len, vo
+   id *value);
+   22
+   23  void TSTree_traverse(TSTree *node, TSTree_traverse_cb cb, void *dat
+   a);
+   24
+   25  void TSTree_destroy(TSTree *root);
+   26
+   27  #endif
+     __________________________________________________________________
+
+   The TSTree has the following elements:
+
+   splitchar
+          The character at this point in the tree.
+
+   low
+          The branch that is lower than splitchar.
+
+   equal
+          The branch that is equal to splitchar.
+
+   high
+          The branch that is higher than splitchar.
+
+   value
+          The value set for a string at that point with that splitchar.
+
+   You can see this implementation has the following operations:
+
+   search
+          Typical "find a value for this key" operation.
+
+   search_prefix
+          Finds the first value that has this as a prefix of its key. This
+          is the an operation that you can't easily do in a BSTree or
+          Hashmap.
+
+   insert
+          Breaks the key down by each character and inserts it into the
+          tree.
+
+   traverse
+          Walks the tree allowing you to collect or analyze all the keys
+          and values it contains.
+
+   The only thing missing is a TSTree_delete, and that's because it is a
+   horribly expensive operation, even more than BSTree_delete was. When I
+   use TSTree structures I treat them as constant data that I plan on
+   traversing many times and not removing anything from them. They are
+   very fast for this, but are not good if you need to insert and delete
+   quickly. For that I use Hashmap since it beats both BSTree and TSTree.
+
+   The implementation for the TSTree is actually simple, but it might be
+   hard to follow at first. I'll break it down after you enter it in:
+     __________________________________________________________________
+
+   Source 152: src/lcthw/tstree.c
+   1  #include <stdlib.h>
+   2  #include <stdio.h>
+   3  #include <assert.h>
+   4  #include <lcthw/dbg.h>
+   5  #include <lcthw/tstree.h>
+   6
+   7  static inline TSTree *TSTree_insert_base(TSTree *root, TSTree *node,
+   8          const char *key, size_t len, void *value)
+   9  {
+   10      if(node == NULL) {
+   11          node = (TSTree *) calloc(1, sizeof(TSTree));
+   12
+   13          if(root == NULL) {
+   14              root = node;
+   15          }
+   16
+   17          node->splitchar = *key;
+   18      }
+   19
+   20      if(*key < node->splitchar) {
+   21          node->low = TSTree_insert_base(root, node->low, key, len, v
+   alue);
+   22      } else if(*key == node->splitchar) {
+   23          if(len > 1) {
+   24              node->equal = TSTree_insert_base(root, node->equal, key
+   +1, len - 1, value);
+   25          } else {
+   26              assert(node->value == NULL && "Duplicate insert into ts
+   t.");
+   27              node->value = value;
+   28          }
+   29      } else {
+   30          node->high = TSTree_insert_base(root, node->high, key, len,
+    value);
+   31      }
+   32
+   33      return node;
+   34  }
+   35
+   36  TSTree *TSTree_insert(TSTree *node, const char *key, size_t len, vo
+   id *value)
+   37  {
+   38      return TSTree_insert_base(node, node, key, len, value);
+   39  }
+   40
+   41  void *TSTree_search(TSTree *root, const char *key, size_t len)
+   42  {
+   43      TSTree *node = root;
+   44      size_t i = 0;
+   45
+   46      while(i < len && node) {
+   47          if(key[i] < node->splitchar) {
+   48              node = node->low;
+   49          } else if(key[i] == node->splitchar) {
+   50              i++;
+   51              if(i < len) node = node->equal;
+   52          } else {
+   53              node = node->high;
+   54          }
+   55      }
+   56
+   57      if(node) {
+   58          return node->value;
+   59      } else {
+   60          return NULL;
+   61      }
+   62  }
+   63
+   64  void *TSTree_search_prefix(TSTree *root, const char *key, size_t le
+   n)
+   65  {
+   66      if(len == 0) return NULL;
+   67
+   68      TSTree *node = root;
+   69      TSTree *last = NULL;
+   70      size_t i = 0;
+   71
+   72      while(i < len && node) {
+   73          if(key[i] < node->splitchar) {
+   74              node = node->low;
+   75          } else if(key[i] == node->splitchar) {
+   76              i++;
+   77              if(i < len) {
+   78                  if(node->value) last = node;
+   79                  node = node->equal;
+   80              }
+   81          } else {
+   82              node = node->high;
+   83          }
+   84      }
+   85
+   86      node = node ? node : last;
+   87
+   88      // traverse until we find the first value in the equal chain
+   89      // this is then the first node with this prefix
+   90      while(node && !node->value) {
+   91          node = node->equal;
+   92      }
+   93
+   94      return node ? node->value : NULL;
+   95  }
+   96
+   97  void TSTree_traverse(TSTree *node, TSTree_traverse_cb cb, void *dat
+   a)
+   98  {
+   99      if(!node) return;
+   100
+   101      if(node->low) TSTree_traverse(node->low, cb, data);
+   102
+   103      if(node->equal) {
+   104          TSTree_traverse(node->equal, cb, data);
+   105      }
+   106
+   107      if(node->high) TSTree_traverse(node->high, cb, data);
+   108
+   109      if(node->value) cb(node->value, data);
+   110  }
+   111
+   112  void TSTree_destroy(TSTree *node)
+   113  {
+   114      if(node == NULL) return;
+   115
+   116      if(node->low) TSTree_destroy(node->low);
+   117
+   118      if(node->equal) {
+   119          TSTree_destroy(node->equal);
+   120      }
+   121
+   122      if(node->high) TSTree_destroy(node->high);
+   123
+   124      free(node);
+   125  }
+     __________________________________________________________________
+
+   For TSTree_insert I'm using the same pattern for recursive structures
+   where I have a small function that calls the real recursive function.
+   I'm not doing any additional check here but you should add the usual
+   defensive programming to it. One thing to keep in mind is it is using a
+   slightly different design where you don't have a separate TSTree_create
+   function, and instead if you pass it a NULL for the node then it will
+   create it, and returns the final value.
+
+   That means I need to break down TSTree_insert_base for you to
+   understand the insert operation:
+
+   tstree.c:10-18
+          As I mentioned, if I'm given a NULL then I need to make this
+          node and assign the *key (current char) to it. This is used to
+          build the tree as we insert keys.
+
+   tstree.c:20-21
+          If the *key ¡ this then recurse, but go to the low branch.
+
+   tstree.c:22
+          This splitchar is equal, so I want to go to deal with equality.
+          This will happen if we just created this node, so we'll be
+          building the tree at this point.
+
+   tstree.c:23-24
+          There's still characters to handle, so recurse down the equal
+          branch, but go to the next *key char.
+
+   tstree.c:26-27
+          This is the last char, so I set the value and that's it. I have
+          an assert here in case of a duplicate.
+
+   tstree.c:29-30
+          The last condition is that this *key is greater than splitchar
+          so I need to recurse down the high branch.
+
+   The key to some of the properties of this data structure is the fact
+   that I'm only incrementing the character I analyze when a splitchar is
+   equal. The other two conditions I just walk the tree until I hit an
+   equal character to recurse into next. What this does is it makes it
+   very fast to not find a key. I can get a bad key, and simply walk a few
+   high and low nodes until I hit a dead end to know that this key doesn't
+   exist. I don't need to process every character of the key, or every
+   node of the tree.
+
+   Once you understand that then move onto analyzing how TSTree_search
+   works:
+
+   tstree.c:46
+          I don't need to process the tree recursively in the TSTree, I
+          can just use a while loop and a node for where I am currently.
+
+   tstree.c:47-48
+          If the current char is less than the node splitchar, then go
+          low.
+
+   tstree.c:49-51
+          If it's equal, then increment i and go equal as long as it's not
+          the last character. That's why the if(i < len) is there, so that
+          I don't go too far past the final value.
+
+   tstree.c:52-53
+          Otherwise I go high since the char is greater.
+
+   tstree.c:57-61
+          If after the loop I have a node, then return its value,
+          otherwise return NULL.
+
+   This isn't too difficult to understand, and you can then see that it's
+   almost exacty the same algorithm for the TSTree_search_prefix function.
+   The only difference is I'm trying to not find an exact match, but the
+   longest prefix I can. To do that I keep track of the last node that was
+   equal, and then after the search loop, walk that node until I find a
+   value.
+
+   Looking at TSTree_search_prefix you can start to see the second
+   advantage a TSTree has over the BSTree and Hashmap for finding strings.
+   Given any key of X length, you can find any key in X moves. You can
+   also find the first prefix in X moves, plus N more depending on how big
+   the matching key is. If the biggest key in the tree is 10 characters
+   long, then you can find any prefix in that key in 10 moves. More
+   importantly, you can do all of this by only comparing each character of
+   the key once.
+
+   In comparison, to do the same with a BSTree you would have to check the
+   prefixes of each character in every possibly matching node in the
+   BSTree against the characters in the prefix. It's the same for finding
+   keys, or seeing if a key doesn't exist. You have to compare each
+   character against most of the characters in the BSTree to find or not
+   find a match.
+
+   A Hashamp is even worse for finding prefixes since you can't hash just
+   the prefix. You basically can't do this efficiently in a Hashmap unless
+   the data is something you can parse like a URL. Even then that usually
+   requires whole trees of Hashmaps.
+
+   The last two functions should be easy for you to analyze as they are
+   the typical traversing and destroying operations you've seen already
+   for other data structures.
+
+   Finally, I have a simple unit test for the whole thing to make sure it
+   works right:
+     __________________________________________________________________
+
+   Source 153: tests/tstree_tests.c
+   1  #include "minunit.h"
+   2  #include <lcthw/tstree.h>
+   3  #include <string.h>
+   4  #include <assert.h>
+   5  #include <lcthw/bstrlib.h>
+   6
+   7
+   8  TSTree *node = NULL;
+   9  char *valueA = "VALUEA";
+   10  char *valueB = "VALUEB";
+   11  char *value2 = "VALUE2";
+   12  char *value4 = "VALUE4";
+   13  char *reverse = "VALUER";
+   14  int traverse_count = 0;
+   15
+   16  struct tagbstring test1 = bsStatic("TEST");
+   17  struct tagbstring test2 = bsStatic("TEST2");
+   18  struct tagbstring test3 = bsStatic("TSET");
+   19  struct tagbstring test4 = bsStatic("T");
+   20
+   21  char *test_insert()
+   22  {
+   23      node = TSTree_insert(node, bdata(&test1), blength(&test1), valu
+   eA);
+   24      mu_assert(node != NULL, "Failed to insert into tst.");
+   25
+   26      node = TSTree_insert(node, bdata(&test2), blength(&test2), valu
+   e2);
+   27      mu_assert(node != NULL, "Failed to insert into tst with second
+   name.");
+   28
+   29      node = TSTree_insert(node, bdata(&test3), blength(&test3), reve
+   rse);
+   30      mu_assert(node != NULL, "Failed to insert into tst with reverse
+    name.");
+   31
+   32      node = TSTree_insert(node, bdata(&test4), blength(&test4), valu
+   e4);
+   33      mu_assert(node != NULL, "Failed to insert into tst with second
+   name.");
+   34
+   35      return NULL;
+   36  }
+   37
+   38  char *test_search_exact()
+   39  {
+   40      // tst returns the last one inserted
+   41      void *res = TSTree_search(node, bdata(&test1), blength(&test1))
+   ;
+   42      mu_assert(res == valueA, "Got the wrong value back, should get
+   A not B.");
+   43
+   44      // tst does not find if not exact
+   45      res = TSTree_search(node, "TESTNO", strlen("TESTNO"));
+   46      mu_assert(res == NULL, "Should not find anything.");
+   47
+   48      return NULL;
+   49  }
+   50
+   51  char *test_search_prefix()
+   52  {
+   53      void *res = TSTree_search_prefix(node, bdata(&test1), blength(&
+   test1));
+   54      debug("result: %p, expected: %p", res, valueA);
+   55      mu_assert(res == valueA, "Got wrong valueA by prefix.");
+   56
+   57      res = TSTree_search_prefix(node, bdata(&test1), 1);
+   58      debug("result: %p, expected: %p", res, valueA);
+   59      mu_assert(res == value4, "Got wrong value4 for prefix of 1.");
+   60
+   61      res = TSTree_search_prefix(node, "TE", strlen("TE"));
+   62      mu_assert(res != NULL, "Should find for short prefix.");
+   63
+   64      res = TSTree_search_prefix(node, "TE--", strlen("TE--"));
+   65      mu_assert(res != NULL, "Should find for partial prefix.");
+   66
+   67
+   68      return NULL;
+   69  }
+   70
+   71  void TSTree_traverse_test_cb(void *value, void *data)
+   72  {
+   73      assert(value != NULL && "Should not get NULL value.");
+   74      assert(data == valueA && "Expecting valueA as the data.");
+   75      traverse_count++;
+   76  }
+   77
+   78  char *test_traverse()
+   79  {
+   80      traverse_count = 0;
+   81      TSTree_traverse(node, TSTree_traverse_test_cb, valueA);
+   82      debug("traverse count is: %d", traverse_count);
+   83      mu_assert(traverse_count == 4, "Didn't find 4 keys.");
+   84
+   85      return NULL;
+   86  }
+   87
+   88  char *test_destroy()
+   89  {
+   90      TSTree_destroy(node);
+   91
+   92      return NULL;
+   93  }
+   94
+   95  char * all_tests() {
+   96      mu_suite_start();
+   97
+   98      mu_run_test(test_insert);
+   99      mu_run_test(test_search_exact);
+   100      mu_run_test(test_search_prefix);
+   101      mu_run_test(test_traverse);
+   102      mu_run_test(test_destroy);
+   103
+   104      return NULL;
+   105  }
+   106
+   107  RUN_TESTS(all_tests);
+     __________________________________________________________________
+
+47.1 Advantages And Disadvantages
+
+   There's other interesting practical things you can do with a TSTree:
+
+    1. In addition to finding prefixes, you can reverse all the keys you
+       insert, and then find by suffix. I use this to lookup host names,
+       since I want to find *.learncodethehardway.com so if I go backwards
+       I can match them quickly.
+    2. You can do "approximate" matching, where you gather all the nodes
+       that have most of the same characters as the key, or using other
+       algorithms for what's a close match.
+    3. You can find all the keys that have a part in the middle.
+
+   I've already talked about some of the things TSTrees can do, but they
+   aren't the best data structure all the time. The disadvantages of the
+   TSTree are:
+
+    1. As I mentioned, deleting from them is murder. They are better for
+       data that needs to be looked up fast and you rarely remove from. If
+       you need to delete then simply disable the value and then
+       periodically rebuild the tree when it gets too big.
+    2. It uses a ton of memory compared to BSTree and Hashmaps for the
+       same key space. Think about it, it's using a full node for each
+       character in every key. It might do better for smaller keys, but if
+       you put a lot in a TSTree it will get huge.
+    3. They also do not work well with large keys, but "large" is
+       subjective so as usual test first. If you're trying to store 10k
+       character sized keys then use a Hashmap.
+
+47.2 How To Improve It
+
+   As usual, go through and improve this by adding the defensive
+   preconditions, asserts, and checks to each function. There's some other
+   possible improvements, but you don't necessarily have to implement all
+   of these:
+
+    1. You could allow duplicates by using a DArray instead of the value.
+    2. As I mentioned deleting is hard, but you could simulate it by
+       setting the values to NULL so they are effectively gone.
+    3. There are no ways to collect all the possible matching values. I'll
+       have you implement that in an extra credit.
+    4. There are other algorithms that are more complex but have slightly
+       better properties. Take a look at Suffix Array, Suffix Tree, and
+       Radix Tree structures.
+
+47.3 Extra Credit
+
+    1. Implement a TSTree_collect that returns a DArray containing all the
+       keys that match the given prefix.
+    2. Implement TSTree_search_suffix and a TSTree_insert_suffix so you
+       can do suffix searches and inserts.
+    3. Use valgrind to see how much memory this structure uses to store
+       data compared to the BSTree and Hashmap.
+
+   [next] [prev] [prev-tail] [front] [up]
+     __________________________________________________________________
+
+   Please enable JavaScript to view the comments powered by Disqus.
+
+Take An Online Video Course
+
+   You can sign up for a video course at:
+
+   http://www.udemy.com/learn-c-the-hard-way/
+
+   This course is currently being built at the same time that the book is
+   being built, but if you sign up now then you get early access to both
+   the videos and PDF of the book.
+
+Related Books
+
+   You might want to check out these other books in the series:
+    1. Learn Ruby The Hard Way
+    2. Learn Regex The Hard Way
+    3. Learn SQL The Hard Way
+    4. Learn C The Hard Way
+    5. Learn Python The Hard Way
+
+   I'll be referencing other books shortly.
+
+   Copyright 2011 Zed A. Shaw. All Rights Reserved.

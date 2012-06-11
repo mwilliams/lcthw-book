@@ -1,0 +1,299 @@
+
+   Learn C The Hard Way A Learn Code The Hard Way Book
+     * Book
+     * Comments
+     * Video Courses
+     * Related Books
+
+   [next] [prev] [prev-tail] [tail] [up]
+
+Chapter 46
+Exercise 45: A Simple TCP/IP Client
+
+   I'm going to use the RingBuffer to create a very simplistic little
+   network testing tool called netclient. To do this I have to add some
+   stuff to the Makefile to handle little programs in the bin/ directory.
+
+46.1 Augment The Makefile
+
+   First, add a variable for the programs just like the unit tests TESTS
+   and TEST_SRC variables:
+
+     PROGRAMS_SRC=$(wildcard bin/*.c)
+     PROGRAMS=$(patsubst %.c,%,$(PROGRAMS_SRC))
+
+   Then you want to add the PROGRAMS to the all target:
+
+     all: $(TARGET) $(SO_TARGET) tests $(PROGRAMS)
+
+   Then add PROGRAMS to the rm line in the clean target:
+
+     rm -rf build $(OBJECTS) $(TESTS) $(PROGRAMS)
+
+   Finally you just need a target at the end to build them all:
+
+     $(PROGRAMS): CFLAGS += $(TARGET)
+
+   With these changes you can drop simple .c files into bin and make will
+   build them and link them to the library just like the tests are done.
+
+46.2 The netclient Code
+
+   The code for the little netclient looks like this:
+     __________________________________________________________________
+
+   Source 149: bin/netclient.c
+   1  #undef NDEBUG
+   2  #include <stdlib.h>
+   3  #include <sys/select.h>
+   4  #include <stdio.h>
+   5  #include <lcthw/ringbuffer.h>
+   6  #include <lcthw/dbg.h>
+   7  #include <sys/socket.h>
+   8  #include <sys/types.h>
+   9  #include <sys/uio.h>
+   10  #include <arpa/inet.h>
+   11  #include <netdb.h>
+   12  #include <unistd.h>
+   13  #include <fcntl.h>
+   14
+   15  struct tagbstring NL = bsStatic("\n");
+   16  struct tagbstring CRLF = bsStatic("\r\n");
+   17
+   18  int nonblock(int fd) {
+   19      int flags = fcntl(fd, F_GETFL, 0);
+   20      check(flags >= 0, "Invalid flags on nonblock.");
+   21
+   22      int rc = fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+   23      check(rc == 0, "Can't set nonblocking.");
+   24
+   25      return 0;
+   26  error:
+   27      return -1;
+   28  }
+   29
+   30  int client_connect(char *host, char *port)
+   31  {
+   32      int rc = 0;
+   33      struct addrinfo *addr = NULL;
+   34
+   35      rc = getaddrinfo(host, port, NULL, &addr);
+   36      check(rc == 0, "Failed to lookup %s:%s", host, port);
+   37
+   38      int sock = socket(AF_INET, SOCK_STREAM, 0);
+   39      check(sock >= 0, "Cannot create a socket.");
+   40
+   41      rc = connect(sock, addr->ai_addr, addr->ai_addrlen);
+   42      check(rc == 0, "Connect failed.");
+   43
+   44      rc = nonblock(sock);
+   45      check(rc == 0, "Can't set nonblocking.");
+   46
+   47      freeaddrinfo(addr);
+   48      return sock;
+   49
+   50  error:
+   51      freeaddrinfo(addr);
+   52      return -1;
+   53  }
+   54
+   55  int read_some(RingBuffer *buffer, int fd, int is_socket)
+   56  {
+   57      int rc = 0;
+   58
+   59      if(RingBuffer_available_data(buffer) == 0) {
+   60          buffer->start = buffer->end = 0;
+   61      }
+   62
+   63      if(is_socket) {
+   64          rc = recv(fd, RingBuffer_starts_at(buffer), RingBuffer_avai
+   lable_space(buffer), 0);
+   65      } else {
+   66          rc = read(fd, RingBuffer_starts_at(buffer), RingBuffer_avai
+   lable_space(buffer));
+   67      }
+   68
+   69      check(rc >= 0, "Failed to read from fd: %d", fd);
+   70
+   71      RingBuffer_commit_write(buffer, rc);
+   72
+   73      return rc;
+   74
+   75  error:
+   76      return -1;
+   77  }
+   78
+   79
+   80  int write_some(RingBuffer *buffer, int fd, int is_socket)
+   81  {
+   82      int rc = 0;
+   83      bstring data = RingBuffer_get_all(buffer);
+   84
+   85      check(data != NULL, "Failed to get from the buffer.");
+   86      check(bfindreplace(data, &NL, &CRLF, 0) == BSTR_OK, "Failed to
+   replace NL.");
+   87
+   88      if(is_socket) {
+   89          rc = send(fd, bdata(data), blength(data), 0);
+   90      } else {
+   91          rc = write(fd, bdata(data), blength(data));
+   92      }
+   93
+   94      check(rc == blength(data), "Failed to write everything to fd: %
+   d.", fd);
+   95      bdestroy(data);
+   96
+   97      return rc;
+   98
+   99  error:
+   100      return -1;
+   101  }
+   102
+   103
+   104  int main(int argc, char *argv[])
+   105  {
+   106      fd_set allreads;
+   107      fd_set readmask;
+   108
+   109      int socket = 0;
+   110      int rc = 0;
+   111      RingBuffer *in_rb = RingBuffer_create(1024 * 10);
+   112      RingBuffer *sock_rb = RingBuffer_create(1024 * 10);
+   113
+   114      check(argc == 3, "USAGE: netclient host port");
+   115
+   116      socket = client_connect(argv[1], argv[2]);
+   117      check(socket >= 0, "connect to %s:%s failed.", argv[1], argv[2
+   ]);
+   118
+   119      FD_ZERO(&allreads);
+   120      FD_SET(socket, &allreads);
+   121      FD_SET(0, &allreads);
+   122
+   123      while(1) {
+   124          readmask = allreads;
+   125          rc = select(socket + 1, &readmask, NULL, NULL, NULL);
+   126          check(rc >= 0, "select failed.");
+   127
+   128          if(FD_ISSET(0, &readmask)) {
+   129              rc = read_some(in_rb, 0, 0);
+   130              check_debug(rc != -1, "Failed to read from stdin.");
+   131          }
+   132
+   133          if(FD_ISSET(socket, &readmask)) {
+   134              rc = read_some(sock_rb, socket, 0);
+   135              check_debug(rc != -1, "Failed to read from socket.");
+   136          }
+   137
+   138          while(!RingBuffer_empty(sock_rb)) {
+   139              rc = write_some(sock_rb, 1, 0);
+   140              check_debug(rc != -1, "Failed to write to stdout.");
+   141          }
+   142
+   143          while(!RingBuffer_empty(in_rb)) {
+   144              rc = write_some(in_rb, socket, 1);
+   145              check_debug(rc != -1, "Failed to write to socket.");
+   146          }
+   147      }
+   148
+   149      return 0;
+   150
+   151  error:
+   152      return -1;
+   153  }
+     __________________________________________________________________
+
+   This code uses select to handle events from both stdin (file descriptor
+   0) and from the socket it uses to talk to a server. It uses RingBuffers
+   to store the data and copy it around, and you can consider the
+   functions read_some and write_some early prototypes for similar
+   functions in the RingBuffer library.
+
+   In this little bit of code are quite a few networking functions you may
+   not know. As you hit a function you don't know, look it up in the man
+   pages and make sure you understand it. This one little file could
+   actually get you to research all the APIs required to write a little
+   server in C.
+
+46.3 What You Should See
+
+   If you have everything building then the quickest way to test it is see
+   if you can get a special file off learncodethehardway.org:
+     __________________________________________________________________
+
+   Source 150: Testing netclient
+   1  $
+   2  $ ./bin/netclient learncodethehardway.org 80
+   3  GET /ex45.txt HTTP/1.1
+   4  Host: learncodethehardway.org
+   5
+   6  HTTP/1.1 200 OK
+   7  Date: Fri, 27 Apr 2012 00:41:25 GMT
+   8  Content-Type: text/plain
+   9  Content-Length: 41
+   10  Last-Modified: Fri, 27 Apr 2012 00:42:11 GMT
+   11  ETag: 4f99eb63-29
+   12  Server: Mongrel2/1.7.5
+   13
+   14  Learn C The Hard Way, Exercise 45 works.
+   15  ^C
+   16  $
+     __________________________________________________________________
+
+   What I did there is I type in the syntax needed to make the HTTP
+   request for the file /ex45.txt, then the Host: header line, then hit
+   ENTER to get an empty line. I then get the response, with headers and
+   the content. After that I just hit CTRL-c to exit.
+
+46.4 How To Break It
+
+   This code definitely could have bugs, and currently in the draft of the
+   book I'm going to have to keep working on this. In the meantime, try
+   analyzing the code I have here and thrashing it against other servers.
+   There's a tool called netcat that is great for setting up these kinds
+   of servers. Another thing to do is use a language like Python or Ruby
+   to create a simple "junk server" that spews out junk and bad data,
+   closes connections randomly, and other nasty things.
+
+   If you find bugs, report them in the comments and I'll fix them up.
+
+46.5 Extra Credit
+
+    1. As I mentioned, there's quite a few functions you may not know, so
+       look them up. In fact, look them all up even if you think you know
+       them.
+    2. Run this under valgrind and look for errors.
+    3. Go back through and add various defensive programming checks to the
+       functions to improve them.
+    4. Use the getopt function to allow the user to give this the option
+       to not translate \n to \r\n. This is only needed on protocols that
+       require it for line endings, like HTTP. Sometimes you don't want
+       the translation, so give the user an option.
+
+   [next] [prev] [prev-tail] [front] [up]
+     __________________________________________________________________
+
+   Please enable JavaScript to view the comments powered by Disqus.
+
+Take An Online Video Course
+
+   You can sign up for a video course at:
+
+   http://www.udemy.com/learn-c-the-hard-way/
+
+   This course is currently being built at the same time that the book is
+   being built, but if you sign up now then you get early access to both
+   the videos and PDF of the book.
+
+Related Books
+
+   You might want to check out these other books in the series:
+    1. Learn Ruby The Hard Way
+    2. Learn Regex The Hard Way
+    3. Learn SQL The Hard Way
+    4. Learn C The Hard Way
+    5. Learn Python The Hard Way
+
+   I'll be referencing other books shortly.
+
+   Copyright 2011 Zed A. Shaw. All Rights Reserved.
